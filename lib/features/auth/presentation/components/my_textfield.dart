@@ -1,5 +1,6 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../helpers/ui_responsive_helper.dart';
 
 // ignore: must_be_immutable
 class MyTextField extends StatelessWidget {
@@ -26,29 +27,32 @@ class MyTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return Padding(
-      padding: context.padSymmetricPx(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: AppResponsive.h(4)),
       child: TextFormField(
         onTap: onTap,
         readOnly: readOnly,
         onChanged: onChange,
         controller: controller,
         obscureText: obscureText,
+        style: TextStyle(fontSize: AppResponsive.fs(14)),
         decoration: InputDecoration(
           suffixIcon: suffixIcon,
           label: lable,
-          // border when unselected
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xffE5E5E5)),
-            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xffE5E5E5)),
+            borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
           ),
-          // border when selected
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xffE5E5E5)),
-            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xff007AFF)),
+            borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
           ),
           hintText: hintText,
-          hintStyle: TextStyle(color: Color(0xffA3A3A3)),
+          hintStyle: TextStyle(
+            color: const Color(0xffA3A3A3),
+            fontSize: AppResponsive.fs(13),
+          ),
         ),
       ),
     );

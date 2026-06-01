@@ -1,12 +1,13 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class ActivityButton extends StatelessWidget {
   final String imagePath;
   final Color buttonColor;
   final String buttonName;
   final Color textColor;
-  final void Function() onTap;
+  final VoidCallback onTap;
+
   const ActivityButton({
     super.key,
     required this.imagePath,
@@ -18,14 +19,16 @@ class ActivityButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
       child: Container(
-        height: context.hPx(56),
-        width: context.wPx(169),
+        height: AppResponsive.h(52),
+        width: double.infinity, // ← was context.wPx(169), now fluid
         decoration: BoxDecoration(
-          border: Border.all(color: Color(0xff007AFF)),
-          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xff007AFF)),
+          borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
           color: buttonColor,
         ),
         child: Row(
@@ -33,16 +36,20 @@ class ActivityButton extends StatelessWidget {
           children: [
             Image.asset(
               imagePath,
-              height: context.hPx(24),
-              width: context.wPx(24),
+              height: AppResponsive.sp(20),
+              width: AppResponsive.sp(20),
             ),
-            context.spaceWPx(10),
-            Text(
-              buttonName,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: textColor,
+            SizedBox(width: AppResponsive.w(8)),
+            Flexible(
+              child: Text(
+                buttonName,
+                style: TextStyle(
+                  fontSize: AppResponsive.fs(13),
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
           ],

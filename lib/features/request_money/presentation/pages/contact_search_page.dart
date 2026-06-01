@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
-import '../../../chat/presentation/components/chat_tile.dart';
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class ContactSearchPage extends StatefulWidget {
   const ContactSearchPage({super.key});
@@ -12,70 +12,57 @@ class ContactSearchPage extends StatefulWidget {
 }
 
 class _ContactSearchPageState extends State<ContactSearchPage> {
-  final TextEditingController searchController = TextEditingController();
+  final _searchCtrl = TextEditingController();
   Timer? _debounce;
-
-  Stream<List<Map<String, String>>>? contactStream;
+  Stream<List<Map<String, String>>>? _stream;
 
   @override
   void initState() {
     super.initState();
 
-    searchController.addListener(() {
-      if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _searchCtrl.addListener(() {
+      _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 500), () {
-        final query = searchController.text.trim();
+        final q = _searchCtrl.text.trim();
         if (!mounted) return;
-
-        if (query.isEmpty) {
-          setState(() {
-            contactStream = null;
-          });
-        } else {
-          setState(() {
-            contactStream = _searchContacts(query);
-          });
-        }
+        setState(() => _stream = q.isEmpty ? null : _search(q));
       });
     });
   }
 
-  Stream<List<Map<String, String>>> _searchContacts(String phone) async* {
-    // Step 1: Search accounts by phone
-    final accountQuery =
+  Stream<List<Map<String, String>>> _search(String phone) async* {
+    final snap =
         FirebaseFirestore.instance
             .collection('accounts')
             .where('phone', isEqualTo: phone)
             .snapshots();
 
-    await for (var accountSnapshot in accountQuery) {
-      List<Map<String, String>> results = [];
+    await for (var s in snap) {
+      final results = <Map<String, String>>[];
 
-      for (var doc in accountSnapshot.docs) {
-        final accountData = doc.data();
-        final userId = accountData['userId'] as String?;
-
+      for (var doc in s.docs) {
+        final d = doc.data();
+        final userId = d['userId'] as String?;
         if (userId == null) continue;
 
-        // Step 2: Fetch linked user
-        final userDoc =
+        final uDoc =
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(userId)
                 .get();
 
-        if (!userDoc.exists) continue;
+        if (!uDoc.exists) continue;
 
-        final userData = userDoc.data()!;
-        final profileUrl = userData['profileImageUrl'];
+        final ud = uDoc.data()!;
+        final img = ud['profileImageUrl'];
 
         results.add({
-          'name': userData['name'] ?? 'User',
+          'name': ud['name'] ?? 'User',
           'image':
-              (profileUrl != null && profileUrl.toString().isNotEmpty)
-                  ? profileUrl
+              (img != null && img.toString().isNotEmpty)
+                  ? img
                   : 'assets/navigation/profile.png',
-          'phone': accountData['phone'] ?? '',
+          'phone': d['phone'] ?? '',
           'userId': userId,
         });
       }
@@ -87,126 +74,206 @@ class _ContactSearchPageState extends State<ContactSearchPage> {
   @override
   void dispose() {
     _debounce?.cancel();
-    searchController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xffFFFFFF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: InkWell(
           onTap: () => Navigator.pop(context),
           child: const Icon(Icons.arrow_back_ios, size: 20),
         ),
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Request Money',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: AppResponsive.fs(17),
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           Image.asset(
             'assets/home/notification.png',
-            height: context.hPx(24),
-            width: context.wPx(24),
+            height: AppResponsive.sp(22),
+            width: AppResponsive.sp(22),
           ),
-          context.spaceWPx(20),
+          SizedBox(width: AppResponsive.w(20)),
         ],
-        backgroundColor: const Color(0xffFFFFFF),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: context.padSymmetricPx(horizontal: 25),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Requesting from',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                context.spaceHPx(15),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xffD1D5DC)),
-                  ),
-                  child: TextFormField(
-                    controller: searchController,
-                    decoration: InputDecoration(
-                      prefixIcon: Padding(
-                        padding: const EdgeInsets.only(left: 25, right: 10),
-                        child: Image.asset(
-                          'assets/transfer/search.png',
-                          height: context.hPx(24),
-                          width: context.wPx(24),
+
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: SafeArea(
+          child: Column(
+            children: [
+              /// 🔹 TOP SECTION (NO Expanded here)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(25)),
+                child: AppAnimatedItem(
+                  index: 0,
+                  direction: SlideDirection.left,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: AppResponsive.h(12)),
+
+                      Text(
+                        'Requesting from',
+                        style: TextStyle(
+                          fontSize: AppResponsive.fs(14),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      hintText: 'Search by phone...',
-                      hintStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xffA3A3A3),
+
+                      SizedBox(height: AppResponsive.h(12)),
+
+                      /// 🔍 SEARCH FIELD
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            AppResponsive.radiusLg,
+                          ),
+                          border: Border.all(color: const Color(0xffD1D5DC)),
+                        ),
+                        child: TextFormField(
+                          controller: _searchCtrl,
+                          style: TextStyle(fontSize: AppResponsive.fs(14)),
+                          decoration: InputDecoration(
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: AppResponsive.w(14),
+                              ),
+                              child: Image.asset(
+                                'assets/transfer/search.png',
+                                height: AppResponsive.sp(20),
+                                width: AppResponsive.sp(20),
+                              ),
+                            ),
+                            hintText: 'Search by phone...',
+                            hintStyle: TextStyle(
+                              fontSize: AppResponsive.fs(14),
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xffA3A3A3),
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              vertical: AppResponsive.h(14),
+                            ),
+                          ),
+                        ),
                       ),
-                      border: InputBorder.none,
-                    ),
+
+                      SizedBox(height: AppResponsive.h(20)),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-          context.spaceHPx(25),
-          Expanded(
-            child:
-                contactStream == null
-                    ? const Center(child: Text('Enter phone to search'))
-                    : StreamBuilder<List<Map<String, String>>>(
-                      stream: contactStream,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
+              ),
 
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
+              /// 🔹 LIST SECTION (ONLY Expanded here ✅)
+              Expanded(
+                child:
+                    _stream == null
+                        ? Center(
+                          child: Text(
+                            'Enter phone to search',
+                            style: TextStyle(
+                              fontSize: AppResponsive.fs(14),
+                              color: const Color(0xff737373),
+                            ),
+                          ),
+                        )
+                        : StreamBuilder<List<Map<String, String>>>(
+                          stream: _stream,
+                          builder: (context, snap) {
+                            if (snap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
 
-                        final contacts = snapshot.data ?? [];
+                            if (snap.hasError) {
+                              return Center(
+                                child: Text('Error: ${snap.error}'),
+                              );
+                            }
 
-                        if (contacts.isEmpty) {
-                          return const Center(child: Text('No contact found'));
-                        }
+                            final contacts = snap.data ?? [];
 
-                        return ListView.builder(
-                          itemCount: contacts.length,
-                          itemBuilder: (context, index) {
-                            final contact = contacts[index];
+                            if (contacts.isEmpty) {
+                              return Center(
+                                child: Text(
+                                  'No contact found',
+                                  style: TextStyle(
+                                    fontSize: AppResponsive.fs(14),
+                                    color: const Color(0xff737373),
+                                  ),
+                                ),
+                              );
+                            }
 
-                            return ChatTile(
-                              imagePath:
-                                  contact['image']!.isNotEmpty
-                                      ? contact['image']!
-                                      : 'assets/navigation/profile.png',
-                              name: contact['name']!,
-                              message: contact['phone']!,
-                              dateTime: DateTime.now(),
-                              trailingLabel: '',
-                              onTap: () {
-                                Navigator.pop(context, contact);
+                            return ListView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: contacts.length,
+                              itemBuilder: (context, i) {
+                                final c = contacts[i];
+                                final imgUrl = c['image'] ?? '';
+                                final isNet = imgUrl.startsWith('http');
+
+                                return AppAnimatedItem(
+                                  index: i,
+                                  direction: SlideDirection.left,
+                                  child: ListTile(
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: AppResponsive.w(25),
+                                      vertical: AppResponsive.h(4),
+                                    ),
+                                    leading: CircleAvatar(
+                                      radius: AppResponsive.sp(22),
+                                      backgroundImage:
+                                          isNet
+                                              ? NetworkImage(imgUrl)
+                                              : const AssetImage(
+                                                'assets/navigation/profile.png',
+                                              ),
+                                    ),
+                                    title: Text(
+                                      c['name']!,
+                                      style: TextStyle(
+                                        fontSize: AppResponsive.fs(14),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      c['phone']!,
+                                      style: TextStyle(
+                                        fontSize: AppResponsive.fs(12),
+                                        color: const Color(0xff707070),
+                                      ),
+                                    ),
+                                    trailing: Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: AppResponsive.sp(14),
+                                    ),
+                                    onTap: () => Navigator.pop(context, c),
+                                  ),
+                                );
                               },
                             );
                           },
-                        );
-                      },
-                    ),
+                        ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -6,21 +6,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../helpers/ui_responsive_helper.dart';
+
 class PaymentPage extends StatefulWidget {
   final String userId;
-
   const PaymentPage({super.key, required this.userId});
-
   @override
   State<PaymentPage> createState() => _PaymentPageState();
 }
 
 class _PaymentPageState extends State<PaymentPage>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _amountController = TextEditingController();
-  bool _isProcessing = false;
+  final _amountCtrl = TextEditingController();
+  bool _processing = false;
 
-  late AnimationController _animController;
+  // Existing entry animation — KEPT INTACT
+  late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
@@ -36,93 +37,87 @@ class _PaymentPageState extends State<PaymentPage>
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
+    _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.06),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
-    _animController.forward();
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+    _animCtrl.forward();
   }
 
   @override
   void dispose() {
-    _amountController.dispose();
-    _animController.dispose();
+    _amountCtrl.dispose();
+    _animCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _makePayment(BuildContext context) async {
-    final amount = double.tryParse(_amountController.text.trim());
-
+  Future<void> _pay(BuildContext context) async {
+    final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
-      _showSnack(context, "Please enter a valid amount", isError: true);
+      _snack(context, 'Please enter a valid amount', err: true);
       return;
     }
-
-    setState(() => _isProcessing = true);
-
+    setState(() => _processing = true);
     try {
-      // Single call — Stripe sheet opens, balance updated, records saved,
-      // notification fired — all handled inside StripeService
       await StripeService.instance.makePaymentAndDeposit(amount: amount);
-
-      // Save to PaymentCubit to keep app state in sync
       if (!mounted) return;
-      final payment = Payment(
-        paymentId: "FP-PAY-${DateTime.now().millisecondsSinceEpoch}",
-        userId: widget.userId,
-        amount: amount,
-        method: "Stripe",
-        status: "Completed",
-        dateTime: DateTime.now(),
+      context.read<PaymentCubit>().createPayment(
+        Payment(
+          paymentId: 'FP-PAY-${DateTime.now().millisecondsSinceEpoch}',
+          userId: widget.userId,
+          amount: amount,
+          method: 'Stripe',
+          status: 'Completed',
+          dateTime: DateTime.now(),
+        ),
       );
-      context.read<PaymentCubit>().createPayment(payment);
-
       if (!mounted) return;
       _showSuccessSheet(context, amount);
-      _amountController.clear();
+      _amountCtrl.clear();
     } catch (e) {
       if (!mounted) return;
-
       final err = e.toString();
-      // Ignore user-cancelled Stripe sheet
       if (err.contains('cancel') ||
           err.contains('Cancel') ||
-          err.contains('Cancelled'))
+          err.contains('Cancelled')) {
         return;
-
-      _showSnack(context, err.replaceAll('Exception: ', ''), isError: true);
+      }
+      _snack(context, err.replaceAll('Exception: ', ''), err: true);
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) setState(() => _processing = false);
     }
   }
 
-  void _showSnack(
-    BuildContext context,
-    String message, {
-    bool isError = false,
-  }) {
+  void _snack(BuildContext context, String msg, {bool err = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
+              err ? Icons.error_outline : Icons.check_circle_outline,
               color: Colors.white,
-              size: 18,
+              size: AppResponsive.sp(16),
             ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
+            SizedBox(width: AppResponsive.w(10)),
+            Expanded(
+              child: Text(
+                msg,
+                style: TextStyle(fontSize: AppResponsive.fs(13)),
+              ),
+            ),
           ],
         ),
-        backgroundColor: isError ? const Color(0xFFE53935) : _success,
+        backgroundColor: err ? const Color(0xFFE53935) : _success,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+        ),
+        margin: EdgeInsets.all(AppResponsive.w(16)),
       ),
     );
   }
@@ -132,76 +127,82 @@ class _PaymentPageState extends State<PaymentPage>
       context: context,
       backgroundColor: Colors.transparent,
       isDismissible: false,
+      isScrollControlled: true,
       builder:
           (_) => Container(
             decoration: const BoxDecoration(
               color: _bg,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: _success.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle_rounded,
-                    color: _success,
-                    size: 44,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Deposit Successful!',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: _textDark,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Rs. ${amount.toStringAsFixed(0)} has been deducted\nfrom your FlowPay wallet',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: _textMid,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
+            padding: EdgeInsets.all(AppResponsive.w(26)),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: AppResponsive.sp(68),
+                    height: AppResponsive.sp(68),
+                    decoration: BoxDecoration(
+                      color: _success.withOpacity(0.1),
+                      shape: BoxShape.circle,
                     ),
-                    child: const Text(
-                      'Done',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      color: _success,
+                      size: AppResponsive.sp(42),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-              ],
+                  SizedBox(height: AppResponsive.h(14)),
+                  Text(
+                    'Deposit Successful!',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(19),
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
+                    ),
+                  ),
+                  SizedBox(height: AppResponsive.h(7)),
+                  Text(
+                    'Rs. ${amount.toStringAsFixed(0)} has been deducted\n'
+                    'from your FlowPay wallet',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(13),
+                      color: _textMid,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: AppResponsive.h(24)),
+                  SizedBox(
+                    width: double.infinity,
+                    height: AppResponsive.h(52),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppResponsive.radiusMd,
+                          ),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: AppResponsive.fs(15),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: AppResponsive.h(6)),
+                ],
+              ),
             ),
           ),
     );
@@ -209,6 +210,8 @@ class _PaymentPageState extends State<PaymentPage>
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -217,62 +220,71 @@ class _PaymentPageState extends State<PaymentPage>
         centerTitle: true,
         leading: InkWell(
           onTap: () => Navigator.pop(context),
-          borderRadius: BorderRadius.circular(12),
-          child: const Icon(Icons.arrow_back_ios, size: 18, color: _textDark),
+          borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+          child: Icon(
+            Icons.arrow_back_ios,
+            size: AppResponsive.sp(16),
+            color: _textDark,
+          ),
         ),
-        title: const Text(
+        title: Text(
           'Deposit',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: AppResponsive.fs(15),
             fontWeight: FontWeight.w600,
             color: _textDark,
           ),
         ),
-        actions: const [
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.notifications_outlined, color: _textDark),
+            padding: EdgeInsets.only(right: AppResponsive.w(16)),
+            child: Icon(
+              Icons.notifications_outlined,
+              color: _textDark,
+              size: AppResponsive.sp(22),
+            ),
           ),
         ],
       ),
       body: BlocConsumer<PaymentCubit, PaymentStates>(
         listener: (context, state) {
           if (state is PaymentError) {
-            _showSnack(context, state.message, isError: true);
+            _snack(context, state.message, err: true);
           }
         },
         builder: (context, state) {
+          // ── Entry animation is KEPT exactly as original ──────────────
           return FadeTransition(
             opacity: _fadeAnim,
             child: SlideTransition(
               position: _slideAnim,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(24)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-                    _stripeInfoCard(),
-                    const SizedBox(height: 28),
-                    const Text(
+                    SizedBox(height: AppResponsive.h(18)),
+                    _infoCard(),
+                    SizedBox(height: AppResponsive.h(24)),
+                    Text(
                       'Payment Details',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: AppResponsive.fs(14),
                         fontWeight: FontWeight.w700,
                         color: _textDark,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildLabel('Amount'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: AppResponsive.h(14)),
+                    _label('Amount'),
+                    SizedBox(height: AppResponsive.h(8)),
                     _amountField(),
-                    const SizedBox(height: 16),
-                    _cardEntryNote(),
-                    const SizedBox(height: 32),
-                    _payButton(context, state),
-                    const SizedBox(height: 24),
-                    _poweredByStripe(),
-                    const SizedBox(height: 32),
+                    SizedBox(height: AppResponsive.h(14)),
+                    _cardNote(),
+                    SizedBox(height: AppResponsive.h(28)),
+                    _payBtn(context, state),
+                    SizedBox(height: AppResponsive.h(20)),
+                    _poweredBy(),
+                    SizedBox(height: AppResponsive.h(30)),
                   ],
                 ),
               ),
@@ -283,44 +295,44 @@ class _PaymentPageState extends State<PaymentPage>
     );
   }
 
-  Widget _stripeInfoCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A6BFF), Color(0xFF4D8FFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withOpacity(0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+  Widget _infoCard() => Container(
+    width: double.infinity,
+    padding: EdgeInsets.all(AppResponsive.w(18)),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF1A6BFF), Color(0xFF4D8FFF)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.credit_card_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
+      borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
+      boxShadow: [
+        BoxShadow(
+          color: _primary.withOpacity(0.25),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(AppResponsive.sp(7)),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
               ),
-              const SizedBox(width: 12),
-              const Column(
+              child: Icon(
+                Icons.credit_card_rounded,
+                color: Colors.white,
+                size: AppResponsive.sp(20),
+              ),
+            ),
+            SizedBox(width: AppResponsive.w(10)),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -328,170 +340,174 @@ class _PaymentPageState extends State<PaymentPage>
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                      fontSize: AppResponsive.fs(14),
                     ),
                   ),
                   Text(
                     'Bank-grade encryption',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: AppResponsive.fs(11),
+                    ),
                   ),
                 ],
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Sandbox',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppResponsive.w(8),
+                vertical: AppResponsive.h(3),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Sandbox',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: AppResponsive.fs(10),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 16),
-          const Row(
-            children: [
-              _InfoChip(icon: Icons.lock_outline, label: 'SSL Secured'),
-              SizedBox(width: 12),
-              _InfoChip(icon: Icons.verified_outlined, label: 'PCI Compliant'),
-              SizedBox(width: 12),
-              _InfoChip(icon: Icons.flash_on_outlined, label: 'Instant'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+            ),
+          ],
+        ),
+        SizedBox(height: AppResponsive.h(16)),
+        const Divider(color: Colors.white24, height: 1),
+        SizedBox(height: AppResponsive.h(14)),
+        Row(
+          children: const [
+            _InfoChip(icon: Icons.lock_outline, label: 'SSL Secured'),
+            SizedBox(width: 12),
+            _InfoChip(icon: Icons.verified_outlined, label: 'PCI Compliant'),
+            SizedBox(width: 12),
+            _InfoChip(icon: Icons.flash_on_outlined, label: 'Instant'),
+          ],
+        ),
+      ],
+    ),
+  );
 
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
+  Widget _label(String t) => Text(
+    t,
+    style: TextStyle(
+      fontSize: AppResponsive.fs(12),
+      fontWeight: FontWeight.w500,
+      color: _textDark,
+    ),
+  );
+
+  Widget _amountField() => Container(
+    decoration: BoxDecoration(
+      color: _surface,
+      borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+      border: Border.all(color: _border),
+    ),
+    child: TextField(
+      controller: _amountCtrl,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+      ],
+      style: TextStyle(
+        fontSize: AppResponsive.fs(15),
+        fontWeight: FontWeight.w600,
         color: _textDark,
       ),
-    );
-  }
-
-  Widget _amountField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: TextField(
-        controller: _amountController,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-        ],
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: _textDark,
+      decoration: InputDecoration(
+        hintText: '0.00',
+        hintStyle: TextStyle(
+          color: _textMid.withOpacity(0.5),
+          fontWeight: FontWeight.w400,
+          fontSize: AppResponsive.fs(15),
         ),
-        decoration: InputDecoration(
-          hintText: '0.00',
-          hintStyle: TextStyle(
-            color: _textMid.withOpacity(0.5),
-            fontWeight: FontWeight.w400,
+        prefixIcon: Container(
+          margin: EdgeInsets.only(
+            left: AppResponsive.w(12),
+            right: AppResponsive.w(8),
           ),
-          prefixIcon: Container(
-            margin: const EdgeInsets.only(left: 14, right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _primaryLight,
-              borderRadius: BorderRadius.circular(8),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppResponsive.w(8),
+            vertical: AppResponsive.h(5),
+          ),
+          decoration: BoxDecoration(
+            color: _primaryLight,
+            borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+          ),
+          child: Text(
+            'Rs.',
+            style: TextStyle(
+              color: _primary,
+              fontWeight: FontWeight.w700,
+              fontSize: AppResponsive.fs(12),
             ),
-            child: const Text(
-              'Rs.',
-              style: TextStyle(
-                color: _primary,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 0,
-            minHeight: 0,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
           ),
         ),
-        onChanged: (_) => setState(() {}),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppResponsive.w(14),
+          vertical: AppResponsive.h(15),
+        ),
       ),
-    );
-  }
+      onChanged: (_) => setState(() {}),
+    ),
+  );
 
-  Widget _cardEntryNote() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFE0A3)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFE6A817)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              "Your card details will be securely entered in the next step via Stripe's payment sheet.",
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF7A5500),
-                height: 1.4,
-              ),
+  Widget _cardNote() => Container(
+    padding: EdgeInsets.all(AppResponsive.w(13)),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF8E7),
+      borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+      border: Border.all(color: const Color(0xFFFFE0A3)),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          Icons.info_outline_rounded,
+          size: AppResponsive.sp(16),
+          color: const Color(0xFFE6A817),
+        ),
+        SizedBox(width: AppResponsive.w(8)),
+        Expanded(
+          child: Text(
+            "Your card details will be securely entered in the next step "
+            "via Stripe's payment sheet.",
+            style: TextStyle(
+              fontSize: AppResponsive.fs(11),
+              color: const Color(0xFF7A5500),
+              height: 1.4,
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 
-  Widget _payButton(BuildContext context, PaymentStates state) {
-    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
-    final isReady = amount > 0 && !_isProcessing;
-
+  Widget _payBtn(BuildContext context, PaymentStates state) {
+    final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
+    final isReady = amount > 0 && !_processing;
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: AppResponsive.h(54),
       child: ElevatedButton(
-        onPressed: isReady ? () => _makePayment(context) : null,
+        onPressed: isReady ? () => _pay(context) : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: _primary,
           disabledBackgroundColor: _border,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
           ),
           elevation: isReady ? 4 : 0,
           shadowColor: _primary.withOpacity(0.3),
         ),
         child:
-            _isProcessing || state is PaymentLoading
-                ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
+            _processing || state is PaymentLoading
+                ? SizedBox(
+                  width: AppResponsive.sp(20),
+                  height: AppResponsive.sp(20),
+                  child: const CircularProgressIndicator(
                     color: Colors.white,
                     strokeWidth: 2.5,
                   ),
@@ -499,20 +515,20 @@ class _PaymentPageState extends State<PaymentPage>
                 : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.lock_rounded,
                       color: Colors.white,
-                      size: 18,
+                      size: AppResponsive.sp(16),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: AppResponsive.w(7)),
                     Text(
                       amount > 0
                           ? 'Deposit Rs. ${amount.toStringAsFixed(0)}'
                           : 'Pay with Stripe',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
-                        fontSize: 16,
+                        fontSize: AppResponsive.fs(15),
                       ),
                     ),
                   ],
@@ -521,21 +537,26 @@ class _PaymentPageState extends State<PaymentPage>
     );
   }
 
-  Widget _poweredByStripe() {
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.security_rounded, size: 14, color: _textMid),
-          const SizedBox(width: 6),
-          Text(
-            'Secured & Powered by Stripe',
-            style: TextStyle(fontSize: 12, color: _textMid.withOpacity(0.7)),
+  Widget _poweredBy() => Center(
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.security_rounded,
+          size: AppResponsive.sp(13),
+          color: _textMid,
+        ),
+        SizedBox(width: AppResponsive.w(5)),
+        Text(
+          'Secured & Powered by Stripe',
+          style: TextStyle(
+            fontSize: AppResponsive.fs(11),
+            color: _textMid.withOpacity(0.7),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _InfoChip extends StatelessWidget {
@@ -544,17 +565,22 @@ class _InfoChip extends StatelessWidget {
   const _InfoChip({required this.icon, required this.label});
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: Colors.white70),
-        const SizedBox(width: 4),
-        Text(
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: AppResponsive.sp(12), color: Colors.white70),
+      SizedBox(width: AppResponsive.w(3)),
+      // Flexible + overflow:ellipsis so text shrinks instead of overflowing
+      Flexible(
+        child: Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 11),
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: AppResponsive.fs(10),
+          ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 }

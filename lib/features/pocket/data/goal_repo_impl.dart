@@ -5,115 +5,101 @@ import 'package:flowpay/features/notification/data/services/local_notification_s
 import 'package:flutter/foundation.dart';
 
 class GoalRepoImpl implements GoalRepo {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _db = FirebaseFirestore.instance;
 
-  late final CollectionReference goalsCollection = _firestore.collection(
-    'goals',
-  );
+  CollectionReference get _goals => _db.collection('goals');
+  CollectionReference get _accts => _db.collection('accounts');
+  CollectionReference get _notifs => _db.collection('notifications');
+  CollectionReference get _goalTxn => _db.collection('goal_transactions');
 
-  late final CollectionReference accountsCollection = _firestore.collection(
-    'accounts',
-  );
-
-  late final CollectionReference notificationsCollection = _firestore
-      .collection('notifications');
-
-  // create goal
   @override
   Future<void> createGoal(Goal goal) async {
     try {
-      final docRef = await goalsCollection.add(goal.toJson());
-      await docRef.update({'goalId': docRef.id});
+      final ref = await _goals.add(goal.toJson());
+      await ref.update({'goalId': ref.id});
     } catch (e) {
       throw Exception('Failed to create goal: $e');
     }
   }
 
-  // delete goal
   @override
   Future<void> deleteGoal(String goalID) async {
     try {
-      await goalsCollection.doc(goalID).delete();
+      await _goals.doc(goalID).delete();
     } catch (e) {
       throw Exception('Failed to delete goal');
     }
   }
 
-  // fetch goal
   @override
   Future<List<Goal>> getGoals(String userId) async {
     try {
-      final snapshot =
-          await goalsCollection.where('userId', isEqualTo: userId).get();
-
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return Goal.fromJson(data).copyWith(goalId: doc.id);
-      }).toList();
+      final snap = await _goals.where('userId', isEqualTo: userId).get();
+      return snap.docs
+          .map(
+            (d) => Goal.fromJson(
+              d.data() as Map<String, dynamic>,
+            ).copyWith(goalId: d.id),
+          )
+          .toList();
     } catch (e, st) {
-      debugPrint('Error fetching goals: $e');
-      debugPrint('$st');
+      debugPrint('Error fetching goals: $e\n$st');
       throw Exception('Failed to fetch goals');
     }
   }
 
-  // update goal
   @override
   Future<void> updateGoal(Goal goal) async {
     try {
-      await goalsCollection.doc(goal.goalId).update({
+      await _goals.doc(goal.goalId).update({
         'goalName': goal.goalName,
         'targetAmount': goal.targetAmount,
         'savedAmount': goal.savedAmount,
         'deadline': goal.deadline,
+        'categoryId': goal.categoryId,
+        'notifyOnComplete': goal.notifyOnComplete,
       });
     } catch (e) {
       throw Exception('Failed to update goal');
     }
   }
 
-  // add money to goal
   @override
   Future<void> addMoneyToGoal({
     required String accountId,
     required String goalId,
     required double amount,
   }) async {
-    final batch = _firestore.batch();
-    final transactionId = DateTime.now().millisecondsSinceEpoch.toString();
+    final batch = _db.batch();
+    final txnId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    final accountRef = accountsCollection.doc(accountId);
-    final goalRef = goalsCollection.doc(goalId);
+    final acctRef = _accts.doc(accountId);
+    final goalRef = _goals.doc(goalId);
 
-    final accountSnap = await accountRef.get();
+    final acctSnap = await acctRef.get();
     final goalSnap = await goalRef.get();
 
-    if (!accountSnap.exists) throw Exception("Account not found");
-    if (!goalSnap.exists) throw Exception("Goal not found");
+    if (!acctSnap.exists) throw Exception('Account not found');
+    if (!goalSnap.exists) throw Exception('Goal not found');
 
-    final accountData = accountSnap.data() as Map<String, dynamic>;
+    final acctData = acctSnap.data() as Map<String, dynamic>;
     final goalData = goalSnap.data() as Map<String, dynamic>;
+    final userId = acctData['userId'] as String;
+    final balance = (acctData['balance'] as num).toDouble();
+    final saved = (goalData['savedAmount'] as num).toDouble();
+    final target = (goalData['targetAmount'] as num).toDouble();
+    final goalName = goalData['goalName'] as String;
+    // Read notification preference — default true for old docs
+    final notifyOnComplete = goalData['notifyOnComplete'] as bool? ?? true;
 
-    final userId = accountData['userId'];
-    final accountBalance = (accountData['balance'] as num).toDouble();
-    final savedAmount = (goalData['savedAmount'] as num).toDouble();
-    final goalName = goalData['goalName'];
+    if (balance < amount) throw Exception('Insufficient balance');
 
-    if (accountBalance < amount) {
-      throw Exception("Insufficient balance");
-    }
+    final newSaved = saved + amount;
 
-    // Update balances
-    batch.update(accountRef, {'balance': accountBalance - amount});
-    batch.update(goalRef, {'savedAmount': savedAmount + amount});
-
-    // Store transaction
-    final txnRef = _firestore
-        .collection('goal_transactions')
-        .doc(transactionId);
-
-    batch.set(txnRef, {
-      'transactionId': transactionId,
+    batch.update(acctRef, {'balance': balance - amount});
+    batch.update(goalRef, {'savedAmount': newSaved});
+    batch.set(_goalTxn.doc(txnId), {
+      'transactionId': txnId,
       'accountId': accountId,
       'goalId': goalId,
       'amount': amount,
@@ -124,55 +110,46 @@ class GoalRepoImpl implements GoalRepo {
 
     await batch.commit();
 
-    // Firestore notification
-    await storeNotification(
-      userId: userId,
-      message: 'You saved Rs.${amount.toStringAsFixed(0)} toward $goalName',
-    );
+    // Only notify when goal is hit AND user has notifications enabled
+    if (newSaved >= target && notifyOnComplete) {
+      await _storeGoalHitNotification(
+        userId: userId,
+        goalName: goalName,
+        amount: target,
+      );
+    }
   }
 
-  // withdraw money from goal
   @override
   Future<void> withdrawFromGoal({
     required String accountId,
     required String goalId,
     required double amount,
   }) async {
-    final batch = _firestore.batch();
-    final transactionId = DateTime.now().millisecondsSinceEpoch.toString();
+    final batch = _db.batch();
+    final txnId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    final accountRef = accountsCollection.doc(accountId);
-    final goalRef = goalsCollection.doc(goalId);
+    final acctRef = _accts.doc(accountId);
+    final goalRef = _goals.doc(goalId);
 
-    final accountSnap = await accountRef.get();
+    final acctSnap = await acctRef.get();
     final goalSnap = await goalRef.get();
 
-    if (!accountSnap.exists) throw Exception("Account not found");
-    if (!goalSnap.exists) throw Exception("Goal not found");
+    if (!acctSnap.exists) throw Exception('Account not found');
+    if (!goalSnap.exists) throw Exception('Goal not found');
 
-    final accountData = accountSnap.data() as Map<String, dynamic>;
+    final acctData = acctSnap.data() as Map<String, dynamic>;
     final goalData = goalSnap.data() as Map<String, dynamic>;
+    final balance = (acctData['balance'] as num).toDouble();
+    final saved = (goalData['savedAmount'] as num).toDouble();
+    final goalName = goalData['goalName'] as String;
 
-    final userId = accountData['userId'];
-    final accountBalance = (accountData['balance'] as num).toDouble();
-    final savedAmount = (goalData['savedAmount'] as num).toDouble();
-    final goalName = goalData['goalName'];
+    if (saved < amount) throw Exception('Not enough saved amount');
 
-    if (savedAmount < amount) {
-      throw Exception("Not enough saved amount");
-    }
-
-    // Update balances
-    batch.update(accountRef, {'balance': accountBalance + amount});
-    batch.update(goalRef, {'savedAmount': savedAmount - amount});
-
-    // Store transaction
-    final txnRef = _firestore
-        .collection('goal_transactions')
-        .doc(transactionId);
-
-    batch.set(txnRef, {
-      'transactionId': transactionId,
+    batch.update(acctRef, {'balance': balance + amount});
+    batch.update(goalRef, {'savedAmount': saved - amount});
+    batch.set(_goalTxn.doc(txnId), {
+      'transactionId': txnId,
       'accountId': accountId,
       'goalId': goalId,
       'amount': amount,
@@ -182,88 +159,43 @@ class GoalRepoImpl implements GoalRepo {
     });
 
     await batch.commit();
-
-    // Firestore notification
-    await storeNotification(
-      userId: userId,
-      message: 'You withdrew Rs.${amount.toStringAsFixed(0)} from $goalName',
-    );
   }
 
-  // private notification method
-  Future<void> storeNotification({
+  // ── Goal hit notification — clean, no emoji icon ──────────────────────────
+  Future<void> _storeGoalHitNotification({
     required String userId,
-    required String message,
+    required String goalName,
+    required double amount,
   }) async {
-    final notificationId = '${DateTime.now().millisecondsSinceEpoch}_goal';
+    final id = '${DateTime.now().millisecondsSinceEpoch}_goal_hit';
+    final title = 'Savings Goal Reached';
+    final message =
+        'You have successfully saved Rs.${amount.toStringAsFixed(0)} for "$goalName". Well done!';
 
-    await notificationsCollection.doc(notificationId).set({
-      'notificationId': notificationId,
+    await _notifs.doc(id).set({
+      'notificationId': id,
       'userId': userId,
-      'title': 'Goal Updated',
+      'title': title,
       'message': message,
       'dateTime': DateTime.now(),
-      'type': 'goal',
+      'type': 'goal_hit',
       'read': false,
     });
 
-    LocalNotificationService.instance().showNotification(
-      "Goal Updated",
-      message,
-      null,
-    );
+    LocalNotificationService.instance().showNotification(title, message, null);
   }
 
   @override
-  Stream<List<Map<String, dynamic>>> getGoalTransactionsStream(String goalId) {
-    return _firestore
-        .collection('goal_transactions')
-        .where('goalId', isEqualTo: goalId)
-        .orderBy('dateTime', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((d) => d.data()).toList());
-  }
+  Stream<List<Map<String, dynamic>>> getGoalTransactionsStream(String goalId) =>
+      _db
+          .collection('goal_transactions')
+          .where('goalId', isEqualTo: goalId)
+          .orderBy('dateTime', descending: true)
+          .snapshots()
+          .map((s) => s.docs.map((d) => d.data()).toList());
 
-  // delete goal-transaction
-  Future<void> deleteGoalTransaction(
-    String goalId,
-    String transactionId,
-  ) async {
-    await FirebaseFirestore.instance
-        .collection('goal_transactions')
-        .doc(transactionId)
-        .delete();
+  @override
+  Future<void> deleteGoalTransaction(String goalId, String txnId) async {
+    await _goalTxn.doc(txnId).delete();
   }
 }
-
-    // (Optional) Push notification if token available
-    //   final userSnap = await firestore.collection('users').doc(userId).get();
-    //   final userToken = userSnap.data()?['fcmToken'] ?? "";
-    //   if (userToken.isNotEmpty) {
-    //     try {
-    //       final accessToken = await getAccessToken();
-    //       await http.post(
-    //         Uri.parse(
-    //           "https://fcm.googleapis.com/v1/projects/flowpay-856f7/messages:send",
-    //         ),
-    //         headers: {
-    //           "Content-Type": "application/json",
-    //           "Authorization": "Bearer $accessToken",
-    //         },
-    //         body: jsonEncode({
-    //           "message": {
-    //             "token": userToken,
-    //             "notification": {
-    //               "title": "Goal Updated 🎯",
-    //               "body":
-    //                   "You saved Rs.${amount.toStringAsFixed(0)} toward $goalName",
-    //             },
-    //           },
-    //         }),
-    //       );
-    //     } catch (e) {
-    //       debugPrint("FCM Error: $e");
-    //     }
-    //   }
-  
-

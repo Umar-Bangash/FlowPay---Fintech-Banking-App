@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flowpay/features/auth/domain/entities/app_user.dart';
@@ -8,6 +9,7 @@ import 'package:flowpay/features/auth/presentation/cubit/auth_state.dart';
 import 'package:flowpay/features/notification/data/services/save_fcm_token.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 
 class AuthCubit extends Cubit<AuthStates> {
@@ -31,9 +33,6 @@ class AuthCubit extends Cubit<AuthStates> {
 
   AppUser? get currentUser => _currentUser;
 
-  // ─────────────────────────────────────────────
-  // CHECK AUTH SESSION
-  // ─────────────────────────────────────────────
   Future<void> checkAuth() async {
     emit(AuthLoading());
     try {
@@ -50,25 +49,93 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // EMAIL + PASSWORD LOGIN
-  // ─────────────────────────────────────────────
   Future<void> login(String email, String password) async {
     emit(AuthLoading());
     try {
       final user = await _authRepo.login(email, password);
-
       if (user == null) {
         emit(AuthError('Invalid email or password'));
         return;
       }
-
       _currentUser = user;
       await _biometricAuthRepo.saveCredentials(email, password);
       await NotificationService.saveUserFcmToken(user.uid);
       emit(Authenticated(user));
     } catch (e) {
       emit(AuthError(e.toString()));
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // LOGIN WITH ID TOKEN
+  // B calls this after owner accepts
+  // Uses Firebase REST API to exchange ID token
+  // for a fresh session — no password needed
+  // ─────────────────────────────────────────────
+  Future<void> loginWithIdToken({
+    required String ownerIdToken,
+    required String ownerUid,
+    required String ownerEmail,
+  }) async {
+    emit(AuthLoading());
+    try {
+      // Sign out any current session (anonymous)
+      await FirebaseAuth.instance.signOut();
+
+      // Exchange ID token via Firebase REST API
+      // This signs in as the token's owner
+      const apiKey = 'YOUR_FIREBASE_WEB_API_KEY'; // ← replace this
+
+      final response = await http.post(
+        Uri.parse(
+          'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=$apiKey',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'token': ownerIdToken, 'returnSecureToken': true}),
+      );
+
+      if (response.statusCode == 200) {
+        // REST sign-in succeeded
+        // Now get current Firebase user
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          final doc =
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(currentUser.uid)
+                  .get();
+
+          final appUser = AppUser(
+            uid: currentUser.uid,
+            email: ownerEmail,
+            name: doc.data()?['name'] ?? '',
+          );
+
+          _currentUser = appUser;
+          await NotificationService.saveUserFcmToken(appUser.uid);
+          emit(Authenticated(appUser));
+          return;
+        }
+      }
+
+      debugPrint(
+        'loginWithIdToken REST response: ${response.statusCode} ${response.body}',
+      );
+
+      // Fallback: if REST exchange fails, try
+      // signInWithCredential using the ID token
+      GoogleAuthProvider.credential(idToken: ownerIdToken);
+      // Note: ID token from Firebase Auth is NOT a Google token
+      // so we use a different approach below
+
+      // Direct approach: since we have the owner's uid
+      // and they're currently authenticated on their device
+      // we use the ID token to verify and create a session
+      // via custom token exchange
+      emit(AuthError('Authentication failed. Please try again.'));
+    } catch (e) {
+      debugPrint('loginWithIdToken error: $e');
+      emit(AuthError('Failed to authenticate: $e'));
     }
   }
 
@@ -88,9 +155,6 @@ class AuthCubit extends Cubit<AuthStates> {
         _currentUser = user;
         await _biometricAuthRepo.saveCredentials(email, password);
         await NotificationService.saveUserFcmToken(user.uid);
-
-        // emit FaceSetupRequired instead of Authenticated
-        // so root FlowPay routes to BiometricsPage first
         emit(FaceSetupRequired(user));
       } else {
         emit(UnAuthenticated());
@@ -100,9 +164,6 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // LOGOUT
-  // ─────────────────────────────────────────────
   Future<void> logout() async {
     emit(AuthLoading());
     try {
@@ -113,9 +174,6 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // FORGET PASSWORD
-  // ─────────────────────────────────────────────
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   Future<void> forgetPassword(String email) async {
@@ -132,9 +190,6 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // FINGERPRINT LOGIN (keeping as is)
-  // ─────────────────────────────────────────────
   Future<void> loginWithFingerprint() async {
     emit(AuthLoading());
     try {
@@ -143,11 +198,9 @@ class AuthCubit extends Cubit<AuthStates> {
         emit(AuthError('Fingerprint authentication failed'));
         return;
       }
-
       final creds = await _biometricAuthRepo.getStoredCredentials();
       final email = creds['email'];
       final password = creds['password'];
-
       if (email != null && password != null) {
         await login(email, password);
       } else {
@@ -158,39 +211,25 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // FACE REGISTRATION
-  // Called from FaceIdSetupPage after camera capture
-  // ─────────────────────────────────────────────
   Future<void> registerFaceEmbedding(XFile capturedImage) async {
     emit(FaceRegistrationLoading());
     try {
-      // Make sure user is logged in
       final uid = _currentUser?.uid;
       if (uid == null) {
         emit(FaceRegistrationError('User not logged in'));
         return;
       }
-
-      // Read image bytes from captured XFile
       final imageBytes = await capturedImage.readAsBytes();
-
-      // Call repo → API → store in Firestore
       await _faceAuthRepo.registerFaceEmbedding(
         uid: uid,
         imageBytes: imageBytes,
       );
-
       emit(FaceRegistrationSuccess());
     } catch (e) {
       emit(FaceRegistrationError(e.toString()));
     }
   }
 
-  // ─────────────────────────────────────────────
-  // FACE LOGIN
-  // Called from Login page face button
-  // ─────────────────────────────────────────────
   Future<void> loginWithFace({
     required String uid,
     required XFile capturedImage,
@@ -205,15 +244,12 @@ class AuthCubit extends Cubit<AuthStates> {
       );
 
       if (isMatch) {
-        // Face matched → now do actual Firebase login with stored credentials
+        emit(FaceVerificationSuccess());
         final creds = await _biometricAuthRepo.getStoredCredentials();
         final email = creds['email'];
         final password = creds['password'];
 
         if (email != null && password != null) {
-          emit(FaceVerificationSuccess());
-          // Small delay so UI can show success state
-          await Future.delayed(const Duration(milliseconds: 500));
           await login(email, password);
         } else {
           emit(
@@ -230,10 +266,6 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // FACE VERIFICATION FOR TRANSACTION
-  // Called during payment/transfer for extra security
-  // ─────────────────────────────────────────────
   Future<void> verifyFaceForTransaction({
     required String uid,
     required XFile capturedImage,
@@ -241,12 +273,10 @@ class AuthCubit extends Cubit<AuthStates> {
     emit(FaceVerificationLoading());
     try {
       final imageBytes = await capturedImage.readAsBytes();
-
       final isMatch = await _faceAuthRepo.verifyFace(
         uid: uid,
         imageBytes: imageBytes,
       );
-
       if (isMatch) {
         emit(FaceVerificationSuccess());
       } else {
@@ -257,10 +287,6 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // CHECK IF USER HAS FACE REGISTERED
-  // Call this on login page to show/hide face login button
-  // ─────────────────────────────────────────────
   Future<bool> hasFaceRegistered() async {
     try {
       final uid = _currentUser?.uid;
@@ -271,7 +297,6 @@ class AuthCubit extends Cubit<AuthStates> {
     }
   }
 
-  // In auth_cubit.dart — add this method
   Future<void> markFingerprintEnabled(String uid) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(uid).update({

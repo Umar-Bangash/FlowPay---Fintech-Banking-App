@@ -50,7 +50,7 @@ class Bill {
       "category": category,
       "amount": amount,
       "transactionId": transactionId,
-      "transactionDateTime": transactionDateTime,
+      "transactionDateTime": Timestamp.fromDate(transactionDateTime),
       "status": status,
     };
   }

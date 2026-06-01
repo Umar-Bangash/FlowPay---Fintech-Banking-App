@@ -1,6 +1,6 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class PocketDisplayCard extends StatelessWidget {
   final String pocketImage;
@@ -12,7 +12,6 @@ class PocketDisplayCard extends StatelessWidget {
 
   const PocketDisplayCard({
     super.key,
-
     required this.pocketImage,
     required this.pocketName,
     required this.saveAmount,
@@ -23,104 +22,170 @@ class PocketDisplayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double progress = (percentage / 100).clamp(0.0, 1.0);
+    AppResponsive.init(context);
+    final progress = (percentage / 100).clamp(0.0, 1.0);
+    final iconSz = AppResponsive.sp(40).clamp(32.0, 50.0);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: EdgeInsets.only(bottom: AppResponsive.h(12)),
       child: Container(
-        height: context.hPx(241),
-        width: double.maxFinite,
+        width: double.infinity,
+        // No fixed height — content drives size
+        padding: EdgeInsets.symmetric(
+          horizontal: AppResponsive.w(18),
+          vertical: AppResponsive.h(18),
+        ),
         decoration: BoxDecoration(
-          color: Color(0xffFFFFFF),
-          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.07),
               blurRadius: 15,
               spreadRadius: 6,
-              offset: const Offset(0, 0),
             ),
           ],
         ),
-        child: Padding(
-          padding: context.padSymmetricPx(horizontal: 20, vertical: 25),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    height: context.hPx(42),
-                    width: context.wPx(42),
-                    decoration: BoxDecoration(
-                      color: Color(0xff007AFF),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        pocketImage,
-                        color: Color(0xffFFFFFF),
-                        height: context.hPx(24),
-                        width: context.wPx(24),
-                      ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Icon + name ─────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  height: iconSz,
+                  width: iconSz,
+                  decoration: BoxDecoration(
+                    color: const Color(0xff007AFF),
+                    borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+                  ),
+                  child: Center(
+                    child: Image.asset(
+                      pocketImage,
+                      color: Colors.white,
+                      height: iconSz * 0.55,
+                      width: iconSz * 0.55,
                     ),
                   ),
-                  context.spaceWPx(12),
-                  Text(
+                ),
+                SizedBox(width: AppResponsive.w(10)),
+                Expanded(
+                  child: Text(
                     pocketName,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(16),
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                ],
+                ),
+              ],
+            ),
+
+            SizedBox(height: AppResponsive.h(16)),
+
+            Text(
+              'You\'ve saved',
+              style: TextStyle(
+                fontSize: AppResponsive.fs(14),
+                color: const Color(0xff737373),
               ),
-              context.spaceHPx(20),
-              Text(
-                'You\'ve saved',
-                style: TextStyle(fontSize: 16, color: Color(0xff737373)),
-              ),
-              context.spaceHPx(10),
-              Row(
+            ),
+
+            SizedBox(height: AppResponsive.h(6)),
+
+            // ── Amount row — FittedBox prevents overflow for large numbers ──
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
                 children: [
                   Text(
-                    'Rs $saveAmount',
-                    style: TextStyle(fontSize: 31, color: Color(0xff737373)),
+                    'Rs ${_fmt(saveAmount)}',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(28, max: 34),
+                      color: const Color(0xff737373),
+                    ),
                   ),
                   Text(
-                    ' / $targetAmount',
-                    style: TextStyle(fontSize: 12, color: Color(0xff737373)),
+                    ' / ${_fmt(targetAmount)}',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(12),
+                      color: const Color(0xff737373),
+                    ),
                   ),
                 ],
               ),
-              context.spaceHPx(8),
+            ),
 
-              LinearPercentIndicator(
-                width: MediaQuery.of(context).size.width - 100,
+            SizedBox(height: AppResponsive.h(8)),
 
-                animation: true,
-                animationDuration: 800,
-                lineHeight: 12.0,
-                percent: progress,
-
-                barRadius: const Radius.circular(10),
-                backgroundColor: const Color(0xffE6E6E6),
-                progressColor: const Color(0xff007AFF),
-              ),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${percentage.toStringAsFixed(2)}% Complete',
-                    style: TextStyle(fontSize: 12, color: Color(0xff737373)),
+            // ── Progress bar — LayoutBuilder width ─────────────────────
+            LayoutBuilder(
+              builder:
+                  (context, c) => LinearPercentIndicator(
+                    width: c.maxWidth,
+                    animation: true,
+                    animationDuration: 800,
+                    lineHeight: AppResponsive.h(10).clamp(8.0, 14.0),
+                    percent: progress,
+                    padding: EdgeInsets.zero,
+                    barRadius: const Radius.circular(10),
+                    backgroundColor: const Color(0xffE6E6E6),
+                    progressColor: const Color(0xff007AFF),
                   ),
-                  Text(
-                    'Rs $remainAmount to go',
-                    style: TextStyle(fontSize: 12, color: Color(0xff737373)),
+            ),
+
+            SizedBox(height: AppResponsive.h(6)),
+
+            // ── Bottom row — Flexible text prevents overflow ────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    '${percentage.toStringAsFixed(1)}% Complete',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(11),
+                      color: const Color(0xff737373),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                SizedBox(width: AppResponsive.w(8)),
+                Flexible(
+                  child: Text(
+                    'Rs ${_fmt(remainAmount)} to go',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(11),
+                      color: const Color(0xff737373),
+                    ),
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  // Format large numbers nicely: 1000000 → "1,000,000"
+  String _fmt(double v) {
+    if (v >= 1000) {
+      // Insert commas
+      final parts = v.toStringAsFixed(0).split('');
+      final buf = StringBuffer();
+      for (int i = 0; i < parts.length; i++) {
+        if (i > 0 && (parts.length - i) % 3 == 0) buf.write(',');
+        buf.write(parts[i]);
+      }
+      return buf.toString();
+    }
+    return v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
   }
 }

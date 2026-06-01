@@ -62,7 +62,7 @@ class AddPocketBox extends StatelessWidget {
                 : Column(
                   children: [
                     Image.asset(
-                      'assets/home/pocket.png',
+                      'assets/pocket/money.png',
                       height: context.hPx(42),
                       width: context.wPx(42),
                     ),

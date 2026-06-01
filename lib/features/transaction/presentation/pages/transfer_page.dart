@@ -5,453 +5,586 @@ import 'package:flowpay/features/stripe_payment/presentation/pages/payment_page.
 import 'package:flowpay/features/profile_and_setting/presentation/cubit/profile_cubit.dart';
 import 'package:flowpay/features/profile_and_setting/presentation/cubit/profile_states.dart';
 import 'package:flowpay/features/transaction/presentation/components/trx_tile.dart';
-import 'package:flowpay/features/transaction/presentation/components/activity_button.dart';
 import 'package:flowpay/features/transaction/presentation/components/card_detail.dart';
 import 'package:flowpay/features/transaction/presentation/cubit/transaction_cubit.dart';
 import 'package:flowpay/features/transaction/presentation/cubit/transaction_states.dart';
+import 'package:flowpay/features/transaction/presentation/pages/favourite_page.dart';
+import 'package:flowpay/features/transaction/presentation/pages/history_page.dart';
 import 'package:flowpay/features/transaction/presentation/pages/transfer_money.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 import '../../../account/presentation/cubit/account_cubit.dart';
 import '../../../account/presentation/cubit/account_states.dart';
+import '../components/profile_image.dart';
 
 class TransferPage extends StatelessWidget {
   TransferPage({super.key});
 
-  final searchController = TextEditingController();
-  final userId = FirebaseAuth.instance.currentUser!.uid;
+  final _userId = FirebaseAuth.instance.currentUser!.uid;
 
-  // Timer? _debounce;
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SizedBox(
-          width: double.maxFinite,
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: SafeArea(
           child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                SizedBox(height: AppResponsive.h(12)),
+
+                // ── Header ──────────────────────────────────────────────
                 Padding(
-                  padding: context.padSymmetricPx(horizontal: 25),
-                  child: BlocBuilder<ProfileCubit, ProfileStates>(
-                    builder: (context, profileState) {
-                      final profile =
-                          profileState is ProfileLoaded
-                              ? profileState.profileUser
-                              : null;
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                  ),
+                  child: AppAnimatedItem(
+                    index: 0,
+                    direction: SlideDirection.left,
+                    child: _Header(userId: _userId),
+                  ),
+                ),
 
-                      return BlocBuilder<AccountCubit, AccountStates>(
-                        builder: (context, accountState) {
-                          final account =
-                              accountState is AccountLoaded &&
-                                      accountState.accounts.isNotEmpty
-                                  ? accountState.accounts.first
-                                  : null;
+                SizedBox(height: AppResponsive.h(20)),
 
-                          return Row(
-                            children: [
-                              // PROFILE IMAGE
-                              Container(
-                                height: context.hPx(43),
-                                width: context.hPx(43),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(9),
-                                  color: const Color.fromARGB(
-                                    255,
-                                    157,
-                                    171,
-                                    179,
+                // ── Section title ────────────────────────────────────────
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                  ),
+                  child: AppAnimatedItem(
+                    index: 1,
+                    direction: SlideDirection.left,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Choose transfer type',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(16),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: AppResponsive.h(4)),
+                        Text(
+                          'Where do you want to send your money?',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(12),
+                            color: const Color(0xff737373),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(18)),
+
+                // ── Transfer type cards ──────────────────────────────────
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                  ),
+                  child: AppAnimatedItem(
+                    index: 2,
+                    direction: SlideDirection.bottom,
+                    child: _TransferCards(userId: _userId),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(20)),
+
+                // ── Or divider ───────────────────────────────────────────
+                AppAnimatedItem(
+                  index: 3,
+                  direction: SlideDirection.bottom,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppResponsive.w(25),
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Divider(color: Color(0xffC0C0C0)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppResponsive.w(10),
+                          ),
+                          child: Text(
+                            'or select from',
+                            style: TextStyle(
+                              fontSize: AppResponsive.fs(12),
+                              color: const Color(0xff737373),
+                            ),
+                          ),
+                        ),
+                        const Expanded(
+                          child: Divider(color: Color(0xffC0C0C0)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(18)),
+
+                // ── History + Favourites ─────────────────────────────────
+                // ROOT FIX: Use Row with Expanded children — NEVER fixed widths
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                  ),
+                  child: AppAnimatedItem(
+                    index: 4,
+                    direction: SlideDirection.bottom,
+                    child: Row(
+                      children: [
+                        // History button — takes half the space
+                        Expanded(
+                          child: _ActionButton(
+                            imagePath: 'assets/transfer/history.png',
+                            label: 'History',
+                            filled: true,
+                            onTap:
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const HistoryPage(),
                                   ),
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(9),
-                                  child:
-                                      (profile?.profileImageUrl != null &&
-                                              profile!
-                                                  .profileImageUrl!
-                                                  .isNotEmpty)
-                                          ? Image.network(
-                                            profile.profileImageUrl!,
-                                            fit: BoxFit.cover,
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            errorBuilder: (
-                                              context,
-                                              error,
-                                              stackTrace,
-                                            ) {
-                                              return const Icon(Icons.person);
-                                            },
-                                          )
-                                          : const Icon(Icons.person),
-                                ),
-                              ),
-
-                              context.spaceWPx(12),
-
-                              // NAME + PHONE
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Hi, ${profile?.name ?? ''}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                          ),
+                        ),
+                        SizedBox(width: AppResponsive.w(10)),
+                        // Favourites button — takes other half
+                        Expanded(
+                          child: _ActionButton(
+                            imagePath: 'assets/transfer/star.png',
+                            label: 'Favourites',
+                            filled: false,
+                            onTap:
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FavouritesPage(),
                                   ),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        account?.phone ?? 'account number',
-                                        style: const TextStyle(
-                                          fontSize: 11.57,
-                                          color: Color(0xff737373),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      context.spaceWPx(4),
-                                      Image.asset(
-                                        'assets/home/copy.png',
-                                        height: context.hPx(16),
-                                        width: context.wPx(16),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-
-                              const Spacer(),
-
-                              // LOGOUT
-                              InkWell(
-                                onTap: () {
-                                  context.read<AuthCubit>().logout();
-                                },
-                                child: Image.asset(
-                                  'assets/home/logout.png',
-                                  height: context.hPx(24),
-                                  width: context.wPx(24),
                                 ),
-                              ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
-                              context.spaceWPx(8),
+                SizedBox(height: AppResponsive.h(16)),
 
-                              // NOTIFICATION
-                              InkWell(
-                                onTap: () {
-                                  final userId =
-                                      FirebaseAuth.instance.currentUser!.uid;
+                // ── Recent Transactions header ────────────────────────────
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                  ),
+                  child: AppAnimatedItem(
+                    index: 6,
+                    direction: SlideDirection.left,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Recent Transactions',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(15),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'View All',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(13),
+                            color: const Color(0xff737373),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) =>
-                                              NotificationPage(userId: userId),
-                                    ),
-                                  );
-                                },
-                                child: Image.asset(
-                                  'assets/home/notification.png',
-                                  height: context.hPx(24),
-                                  width: context.wPx(24),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-                context.spaceHPx(20),
+                SizedBox(height: AppResponsive.h(14)),
+
+                // ── Transaction list ──────────────────────────────────────
                 Padding(
-                  padding: context.padSymmetricPx(horizontal: 25),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Choose transfer type',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      context.spaceHPx(5),
-                      Text(
-                        'Where do you want to send your money?',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ],
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
                   ),
-                ),
-                context.spaceHPx(20),
-                Padding(
-                  padding: context.padSymmetricPx(horizontal: 25),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Stack(
-                        children: [
-                          InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => TransferMoney(),
-                                ),
-                              );
-                            },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.asset(
-                                'assets/transfer/flowpay_card.png',
-                                width: context.wPx(180),
-                                height: context.hPx(160),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          CardDetail(
-                            image: Padding(
-                              padding: context.padAllPx(8),
-                              child: Image.asset(
-                                'assets/images/flowpay_logo.png',
-                              ),
-                            ),
-                            imageCardColor: Color(0xffCFE8FE),
-                            name: 'Flow Pay',
-                            titleColor: Color(0xffFFFFFF),
-                            subTitle: Text(
-                              'Instant transfer, no\nfee',
-                              style: TextStyle(
-                                fontSize: 8.4,
-                                color: Color(0xffFFFFFF),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      context.spaceWPx(20),
-                      Stack(
-                        children: [
-                          Image.asset(
-                            'assets/transfer/stripe_card.png',
-                            width: context.wPx(180),
-                            height: context.hPx(160),
-                          ),
-                          InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => PaymentPage(userId: userId),
-                                ),
-                              );
-                            },
-                            child: CardDetail(
-                              image: Image.asset(
-                                'assets/transfer/stripe_icon.png',
-                              ),
-                              imageCardColor: const Color.fromARGB(
-                                255,
-                                113,
-                                34,
-                                249,
-                              ),
-                              name: 'Pay with Stripe',
-                              titleColor: Color(0xff000000),
-                              subTitle: Text(
-                                'Small fee may \napply',
-                                style: TextStyle(fontSize: 8.5),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                context.spaceHPx(20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      '------------------ ',
-                      style: TextStyle(color: Color(0xff737373)),
-                    ),
-                    Text(
-                      'or select from',
-                      style: TextStyle(fontSize: 12, color: Color(0xff737373)),
-                    ),
-                    Text(
-                      ' ------------------',
-                      style: TextStyle(color: Color(0xff737373)),
-                    ),
-                  ],
-                ),
-                context.spaceHPx(20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ActivityButton(
-                      imagePath: 'assets/transfer/history.png',
-                      buttonColor: Color(0xff007AFF),
-                      buttonName: 'History',
-                      textColor: Color(0xffFFFFFF),
-                      onTap: () {},
-                    ),
-                    context.spaceWPx(8),
-                    ActivityButton(
-                      imagePath: 'assets/transfer/star.png',
-                      buttonColor: Color(0xffFFFFFF),
-                      buttonName: 'Favourites',
-                      textColor: Color(0xff007AFF),
-                      onTap: () {},
-                    ),
-                  ],
-                ),
-                context.spaceHPx(15),
-                Padding(
-                  padding: context.padSymmetricPx(horizontal: 40, vertical: 10),
-                  child: TextFormField(
-                    controller: searchController,
-                    decoration: InputDecoration(
-                      prefixIcon: Padding(
-                        padding: const EdgeInsets.only(left: 25, right: 10),
-                        child: Image.asset(
-                          'assets/transfer/search.png',
-                          height: context.hPx(24),
-                          width: context.wPx(24),
-                        ),
-                      ),
-                      hintText: 'Search by account number',
-                      hintStyle: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xffA3A3A3),
-                      ),
-                      enabled: true,
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xffA3A3A3)),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xffA3A3A3)),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-                context.spaceHPx(15),
-                Padding(
-                  padding: context.padSymmetricPx(horizontal: 25),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Recent Transactions',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'View All',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xff737373),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                context.spaceHPx(15),
-                Padding(
-                  padding: context.padSymmetricPx(horizontal: 25),
                   child: BlocBuilder<TransactionCubit, TransactionStates>(
-                    builder: (context, transactionState) {
-                      if (transactionState is TransactionLoading) {
+                    builder: (context, state) {
+                      if (state is TransactionLoading) {
                         return const Center(child: CircularProgressIndicator());
                       }
-
-                      if (transactionState is TransactionLoaded) {
-                        final transactions = transactionState.transactions;
-
-                        if (transactions.isEmpty) {
-                          return const Center(child: Text('No Transaction'));
+                      if (state is TransactionError) {
+                        return Center(
+                          child: Text(
+                            state.message,
+                            style: TextStyle(fontSize: AppResponsive.fs(13)),
+                          ),
+                        );
+                      }
+                      if (state is TransactionLoaded) {
+                        if (state.transactions.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'No transactions',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(13),
+                                color: const Color(0xff737373),
+                              ),
+                            ),
+                          );
                         }
-
                         return Column(
                           children:
-                              transactions.take(4).map((trx) {
-                                final isCredit = trx.type == "credit";
-
-                                final trxDate =
+                              state.transactions.take(4).toList().asMap().entries.map((
+                                e,
+                              ) {
+                                final i = e.key;
+                                final trx = e.value;
+                                final isCredit = trx.type == 'credit';
+                                final d =
                                     DateTime.tryParse(
                                       trx.dateTime.toString(),
                                     ) ??
                                     DateTime.now();
-
                                 final now = DateTime.now();
-
-                                String formattedDate;
-
-                                if (trxDate.year == now.year &&
-                                    trxDate.month == now.month &&
-                                    trxDate.day == now.day) {
-                                  formattedDate = "Today";
-                                } else if (trxDate.year == now.year &&
-                                    trxDate.month == now.month &&
-                                    trxDate.day == now.day - 1) {
-                                  formattedDate = "Yesterday";
-                                } else {
-                                  formattedDate =
-                                      "${trxDate.day}/${trxDate.month}/${trxDate.year}";
-                                }
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 15),
-                                  child: TrxTile(
-                                    imagePath: 'assets/home/pocket.png',
-                                    name: trx.description,
-                                    datetime: formattedDate,
-                                    amount:
-                                        isCredit
-                                            ? "+ Rs ${trx.amount.toStringAsFixed(0)}"
-                                            : "- Rs ${trx.amount.toStringAsFixed(0)}",
-                                    amountColor:
-                                        isCredit
-                                            ? const Color(0xff2F80ED)
-                                            : const Color(0xffEB5757),
-                                    onTap: () {},
+                                final fmt =
+                                    d.year == now.year &&
+                                            d.month == now.month &&
+                                            d.day == now.day
+                                        ? 'Today'
+                                        : d.year == now.year &&
+                                            d.month == now.month &&
+                                            d.day == now.day - 1
+                                        ? 'Yesterday'
+                                        : '${d.day}/${d.month}/${d.year}';
+                                return AppAnimatedItem(
+                                  index: i + 7,
+                                  direction:
+                                      i.isEven
+                                          ? SlideDirection.left
+                                          : SlideDirection.right,
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: AppResponsive.h(14),
+                                    ),
+                                    child: FutureBuilder<String?>(
+                                      future: getProfileImage(trx.receiverId),
+                                      builder:
+                                          (_, snap) => TrxTile(
+                                            profileImageUrl: snap.data,
+                                            name: trx.description,
+                                            datetime: fmt,
+                                            amount:
+                                                isCredit
+                                                    ? '+ Rs ${trx.amount.toStringAsFixed(0)}'
+                                                    : '- Rs ${trx.amount.toStringAsFixed(0)}',
+                                            amountColor:
+                                                isCredit
+                                                    ? const Color(0xff2F80ED)
+                                                    : const Color(0xffEB5757),
+                                            onTap: () {},
+                                          ),
+                                    ),
                                   ),
                                 );
                               }).toList(),
                         );
                       }
-
-                      if (transactionState is TransactionError) {
-                        return Center(child: Text(transactionState.message));
-                      }
-
-                      return const SizedBox();
+                      return const SizedBox.shrink();
                     },
                   ),
                 ),
-                context.spaceHPx(30),
+
+                SizedBox(height: AppResponsive.h(30)),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Reusable action button (History / Favourites) ────────────────────────────
+// Uses width: double.infinity so Expanded controls its size — NEVER fixed width
+class _ActionButton extends StatelessWidget {
+  final String imagePath;
+  final String label;
+  final bool filled;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.imagePath,
+    required this.label,
+    required this.filled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+      child: Container(
+        width: double.infinity, // fills the Expanded parent
+        height: AppResponsive.h(52),
+        decoration: BoxDecoration(
+          color: filled ? const Color(0xff007AFF) : Colors.white,
+          borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+          border: filled ? null : Border.all(color: const Color(0xff007AFF)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              imagePath,
+              height: AppResponsive.sp(18),
+              width: AppResponsive.sp(18),
+              color: filled ? Colors.white : const Color(0xff007AFF),
+            ),
+            SizedBox(width: AppResponsive.w(8)),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: AppResponsive.fs(14),
+                  fontWeight: FontWeight.w600,
+                  color: filled ? Colors.white : const Color(0xff007AFF),
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+class _Header extends StatelessWidget {
+  final String userId;
+  const _Header({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    final av = AppResponsive.sp(43);
+    return BlocBuilder<ProfileCubit, ProfileStates>(
+      builder: (context, ps) {
+        final profile = ps is ProfileLoaded ? ps.profileUser : null;
+        return BlocBuilder<AccountCubit, AccountStates>(
+          builder: (context, as_) {
+            final account =
+                as_ is AccountLoaded && as_.accounts.isNotEmpty
+                    ? as_.accounts.first
+                    : null;
+            return Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+                  child: Container(
+                    width: av,
+                    height: av,
+                    color: const Color(0xff9DABB3),
+                    child:
+                        (profile?.profileImageUrl?.isNotEmpty ?? false)
+                            ? Image.network(
+                              profile!.profileImageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder:
+                                  (_, __, ___) => const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                  ),
+                            )
+                            : const Icon(Icons.person, color: Colors.white),
+                  ),
+                ),
+                SizedBox(width: AppResponsive.w(12)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hi, ${profile?.name ?? ''}',
+                        style: TextStyle(
+                          fontSize: AppResponsive.fs(15),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              account?.phone ?? 'account number',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(11),
+                                color: const Color(0xff737373),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          SizedBox(width: AppResponsive.w(4)),
+                          Image.asset(
+                            'assets/home/copy.png',
+                            height: AppResponsive.sp(13),
+                            width: AppResponsive.sp(13),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () => context.read<AuthCubit>().logout(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Image.asset(
+                      'assets/home/logout.png',
+                      height: AppResponsive.sp(22),
+                      width: AppResponsive.sp(22),
+                    ),
+                  ),
+                ),
+                SizedBox(width: AppResponsive.w(6)),
+                InkWell(
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => NotificationPage(userId: userId),
+                        ),
+                      ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Image.asset(
+                      'assets/home/notification.png',
+                      height: AppResponsive.sp(22),
+                      width: AppResponsive.sp(22),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ─── Transfer cards — LayoutBuilder so they NEVER overflow ───────────────────
+class _TransferCards extends StatelessWidget {
+  final String userId;
+  const _TransferCards({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final gap = AppResponsive.w(16);
+        final cardW = (c.maxWidth - gap) / 2;
+        final cardH = cardW * 0.86;
+
+        return Row(
+          children: [
+            // FlowPay
+            Expanded(
+              child: Stack(
+                children: [
+                  InkWell(
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => TransferMoney()),
+                        ),
+                    borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        AppResponsive.radiusLg,
+                      ),
+                      child: Image.asset(
+                        'assets/transfer/flowpay_card.png',
+                        width: cardW,
+                        height: cardH,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  CardDetail(
+                    image: Padding(
+                      padding: EdgeInsets.all(AppResponsive.sp(8)),
+                      child: Image.asset('assets/images/flowpay_logo.png'),
+                    ),
+                    imageCardColor: const Color(0xffCFE8FE),
+                    name: 'Flow Pay',
+                    titleColor: Colors.white,
+                    subTitle: Text(
+                      'Instant transfer, no\nfee',
+                      style: TextStyle(
+                        fontSize: AppResponsive.fs(8),
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(width: gap),
+
+            // Stripe
+            Expanded(
+              child: Stack(
+                children: [
+                  Image.asset(
+                    'assets/transfer/stripe_card.png',
+                    width: cardW,
+                    height: cardH,
+                  ),
+                  InkWell(
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PaymentPage(userId: userId),
+                          ),
+                        ),
+                    child: CardDetail(
+                      image: Image.asset('assets/transfer/stripe_icon.png'),
+                      imageCardColor: const Color.fromARGB(255, 113, 34, 249),
+                      name: 'Pay with Stripe',
+                      titleColor: Colors.black,
+                      subTitle: Text(
+                        'Small fee may\napply',
+                        style: TextStyle(fontSize: AppResponsive.fs(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

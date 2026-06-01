@@ -3,26 +3,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flowpay/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:flowpay/features/auth/presentation/pages/login_page.dart';
 import 'package:flowpay/features/profile_and_setting/presentation/cubit/profile_cubit.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flowpay/start_pages/components/main_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
-
   @override
   State<EditProfilePage> createState() => _EditProfilePageState();
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  bool _isLoading = false;
-  bool _isSaving = false;
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _loading = false;
+  bool _saving = false;
   String _cnic = '';
-  String? _profileImageUrl;
+  String? _imgUrl;
 
   @override
   void initState() {
@@ -30,143 +30,112 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _loadData();
   }
 
-  // ─────────────────────────────────────────────
-  // LOAD ALL DATA
-  // ─────────────────────────────────────────────
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-
-    setState(() => _isLoading = true);
-
+    setState(() => _loading = true);
     try {
-      // users collection
-      final userDoc =
+      final uDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
-      // accounts collection
-      final accountQuery =
+      final acctQ =
           await FirebaseFirestore.instance
               .collection('accounts')
               .where('userId', isEqualTo: uid)
               .limit(1)
               .get();
-
       if (mounted) {
-        final data = userDoc.data() ?? {};
+        final d = uDoc.data() ?? {};
         setState(() {
-          _nameController.text = data['name'] ?? '';
-          _cnic = data['cnic'] ?? 'Not set';
-          _profileImageUrl = data['profileImageUrl'];
-          if (accountQuery.docs.isNotEmpty) {
-            _phoneController.text =
-                accountQuery.docs.first.data()['phone'] ?? '';
+          _nameCtrl.text = d['name'] ?? '';
+          _cnic = d['cnic'] ?? 'Not set';
+          _imgUrl = d['profileImageUrl'];
+          if (acctQ.docs.isNotEmpty) {
+            _phoneCtrl.text = acctQ.docs.first.data()['phone'] ?? '';
           }
-          _isLoading = false;
+          _loading = false;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // ─────────────────────────────────────────────
-  // SAVE NAME + PHONE
-  // ─────────────────────────────────────────────
-  Future<void> _saveChanges() async {
+  Future<void> _save() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-
-    final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
-
+    final name = _nameCtrl.text.trim();
+    final phone = _phoneCtrl.text.trim();
     if (name.isEmpty) {
-      _showSnack('Name cannot be empty', isError: true);
+      _snack('Name cannot be empty', err: true);
       return;
     }
     if (phone.isEmpty || phone.length < 10) {
-      _showSnack('Enter a valid phone number', isError: true);
+      _snack('Enter a valid phone number', err: true);
       return;
     }
-
-    setState(() => _isSaving = true);
-
+    setState(() => _saving = true);
     try {
-      // Update name in users
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'name': name,
       });
-
-      // Update phone in accounts
-      final accountQuery =
+      final q =
           await FirebaseFirestore.instance
               .collection('accounts')
               .where('userId', isEqualTo: uid)
               .limit(1)
               .get();
-
-      if (accountQuery.docs.isNotEmpty) {
-        await accountQuery.docs.first.reference.update({'phone': phone});
+      if (q.docs.isNotEmpty) {
+        await q.docs.first.reference.update({'phone': phone});
       }
-
-      // Refresh profile cubit
       if (mounted) {
         await context.read<ProfileCubit>().fetchProfileUser(uid);
-        _showSnack('Profile updated successfully');
+        _snack('Profile updated successfully');
         await Future.delayed(const Duration(milliseconds: 600));
         if (mounted) Navigator.pop(context);
       }
-    } catch (e) {
-      _showSnack('Failed to update. Try again.', isError: true);
+    } catch (_) {
+      _snack('Failed to update. Try again.', err: true);
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
-  // ─────────────────────────────────────────────
-  // CLOSE ACCOUNT
-  // ─────────────────────────────────────────────
-  void _showCloseAccountDialog() {
+  void _showCloseDialog() {
     showDialog(
       context: context,
       builder:
           (ctx) => AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
             ),
             title: const Text(
               'Close Account',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Colors.red,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
             ),
             content: const Text(
-              'This is permanent and cannot be undone. '
-              'Your profile, transactions and all data '
-              'will be deleted forever.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xff737373),
-                height: 1.5,
-              ),
+              'This is permanent and cannot be undone. Your profile, '
+              'transactions and all data will be deleted forever.',
+              style: TextStyle(color: Color(0xff737373), height: 1.5),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(
-                    color: Color(0xff737373),
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(color: Color(0xff737373)),
                 ),
               ),
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  _deleteAccount();
+                  _delete();
                 },
                 child: const Text(
                   'Yes, Close It',
@@ -181,342 +150,371 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Future<void> _deleteAccount() async {
+  Future<void> _delete() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-
-    setState(() => _isSaving = true);
-
+    setState(() => _saving = true);
     try {
-      // Delete user doc
       await FirebaseFirestore.instance.collection('users').doc(uid).delete();
-
-      // Delete account doc
-      final accountQuery =
+      final q =
           await FirebaseFirestore.instance
               .collection('accounts')
               .where('userId', isEqualTo: uid)
               .limit(1)
               .get();
-      if (accountQuery.docs.isNotEmpty) {
-        await accountQuery.docs.first.reference.delete();
-      }
-
-      // Delete Firebase Auth user
+      if (q.docs.isNotEmpty) await q.docs.first.reference.delete();
       await FirebaseAuth.instance.currentUser?.delete();
-
       if (mounted) {
         await context.read<AuthCubit>().logout();
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => LoginPage(onTap: () {})),
-          (route) => false,
+          (r) => false,
         );
       }
-    } catch (e) {
-      _showSnack('Failed to close account. Try again.', isError: true);
-      setState(() => _isSaving = false);
+    } catch (_) {
+      _snack('Failed to close account. Try again.', err: true);
+      setState(() => _saving = false);
     }
   }
 
-  void _showSnack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
+  void _snack(String msg, {bool err = false}) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: err ? Colors.red : Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return Scaffold(
-      backgroundColor: const Color(0xffFFFFFF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xffFFFFFF),
+        backgroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
         leading: InkWell(
           onTap: () => Navigator.pop(context),
           child: const Icon(Icons.arrow_back_ios, size: 20),
         ),
-        title: const Text(
+        title: Text(
           'Profile Setting',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: AppResponsive.fs(15),
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
       body:
-          _isLoading
+          _loading
               ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                padding: context.padSymmetricPx(horizontal: 25),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    context.spaceHPx(20),
+              : AppAnimatedPage(
+                direction: SlideDirection.bottom,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: AppResponsive.h(20)),
 
-                    // ── Profile picture ──
-                    Center(
-                      child: Stack(
-                        children: [
-                          Container(
-                            height: context.hPx(100),
-                            width: context.wPx(100),
-                            decoration: BoxDecoration(
-                              color: const Color(0xffDFE5FF),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: const Color(0xffF2F2F2),
+                      // Avatar
+                      AppAnimatedItem(
+                        index: 0,
+                        direction: SlideDirection.bottom,
+                        child: Center(
+                          child: AppScaleIn(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppResponsive.radiusLg,
+                              ),
+                              child: Container(
+                                height: AppResponsive.sp(96),
+                                width: AppResponsive.sp(96),
+                                color: const Color(0xffDFE5FF),
+                                child:
+                                    (_imgUrl?.isNotEmpty ?? false)
+                                        ? Image.network(
+                                          _imgUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (_, __, ___) => Icon(
+                                                Icons.person,
+                                                size: AppResponsive.sp(46),
+                                                color: const Color(0xff3B6FE8),
+                                              ),
+                                        )
+                                        : Icon(
+                                          Icons.person,
+                                          size: AppResponsive.sp(46),
+                                          color: const Color(0xff3B6FE8),
+                                        ),
                               ),
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(18),
-                              child:
-                                  (_profileImageUrl != null &&
-                                          _profileImageUrl!.isNotEmpty)
-                                      ? Image.network(
-                                        _profileImageUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (c, e, s) => const Icon(
-                                              Icons.person,
-                                              size: 50,
-                                              color: Color(0xff3B6FE8),
-                                            ),
-                                      )
-                                      : const Icon(
-                                        Icons.person,
-                                        size: 50,
-                                        color: Color(0xff3B6FE8),
-                                      ),
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(28)),
+
+                      // Name
+                      AppAnimatedItem(
+                        index: 1,
+                        direction: SlideDirection.left,
+                        child: _Label('Full Name'),
+                      ),
+                      SizedBox(height: AppResponsive.h(8)),
+                      AppAnimatedItem(
+                        index: 1,
+                        direction: SlideDirection.left,
+                        child: _EditField(
+                          controller: _nameCtrl,
+                          hint: 'Enter your full name',
+                          icon: Icons.person_outline,
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(14)),
+
+                      // Phone
+                      AppAnimatedItem(
+                        index: 2,
+                        direction: SlideDirection.right,
+                        child: _Label('Phone Number'),
+                      ),
+                      SizedBox(height: AppResponsive.h(8)),
+                      AppAnimatedItem(
+                        index: 2,
+                        direction: SlideDirection.right,
+                        child: _EditField(
+                          controller: _phoneCtrl,
+                          hint: 'Enter your phone number',
+                          icon: Icons.phone_outlined,
+                          type: TextInputType.phone,
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(14)),
+
+                      // CNIC (read-only)
+                      AppAnimatedItem(
+                        index: 3,
+                        direction: SlideDirection.left,
+                        child: _Label('CNIC'),
+                      ),
+                      SizedBox(height: AppResponsive.h(8)),
+                      AppAnimatedItem(
+                        index: 3,
+                        direction: SlideDirection.left,
+                        child: _ReadField(
+                          value: _cnic,
+                          icon: Icons.badge_outlined,
+                          onCopy: () {
+                            Clipboard.setData(ClipboardData(text: _cnic));
+                            _snack('CNIC copied!');
+                          },
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(8)),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: AppResponsive.sp(13),
+                            color: const Color(0xffA3A3A3),
+                          ),
+                          SizedBox(width: AppResponsive.w(5)),
+                          Text(
+                            'CNIC cannot be changed after registration.',
+                            style: TextStyle(
+                              fontSize: AppResponsive.fs(10),
+                              color: const Color(0xffA3A3A3),
                             ),
                           ),
                         ],
                       ),
-                    ),
 
-                    context.spaceHPx(30),
+                      SizedBox(height: AppResponsive.h(36)),
 
-                    // ── Name ──
-                    _fieldLabel('Full Name'),
-                    context.spaceHPx(8),
-                    _editableField(
-                      controller: _nameController,
-                      hint: 'Enter your full name',
-                      icon: Icons.person_outline,
-                    ),
-
-                    context.spaceHPx(16),
-
-                    // ── Phone ──
-                    _fieldLabel('Phone Number'),
-                    context.spaceHPx(8),
-                    _editableField(
-                      controller: _phoneController,
-                      hint: 'Enter your phone number',
-                      icon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                    ),
-
-                    context.spaceHPx(16),
-
-                    // ── CNIC read only ──
-                    _fieldLabel('CNIC'),
-                    context.spaceHPx(8),
-                    _readOnlyField(
-                      value: _cnic,
-                      icon: Icons.badge_outlined,
-                      onCopy: () {
-                        Clipboard.setData(ClipboardData(text: _cnic));
-                        _showSnack('CNIC copied!');
-                      },
-                    ),
-
-                    context.spaceHPx(12),
-
-                    // CNIC info note
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline,
-                          size: 14,
-                          color: Color(0xffA3A3A3),
+                      // Save
+                      AppAnimatedItem(
+                        index: 4,
+                        direction: SlideDirection.bottom,
+                        child: MainButton(
+                          buttonName: _saving ? 'Saving...' : 'Save Changes',
+                          onTap: _saving ? () {} : _save,
                         ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'CNIC cannot be changed after registration.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xffA3A3A3),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    context.spaceHPx(40),
-
-                    // ── Save button ──
-                    Center(
-                      child: MainButton(
-                        buttonName: _isSaving ? 'Saving...' : 'Save Changes',
-                        onTap: _isSaving ? () {} : _saveChanges,
                       ),
-                    ),
 
-                    context.spaceHPx(20),
+                      SizedBox(height: AppResponsive.h(16)),
 
-                    // ── Close account ──
-                    GestureDetector(
-                      onTap: _showCloseAccountDialog,
-                      child: Container(
-                        height: context.hPx(54),
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: const Color(0xffFFEAEC),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Close Account',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.red,
+                      // Close account
+                      AppAnimatedItem(
+                        index: 5,
+                        direction: SlideDirection.bottom,
+                        child: GestureDetector(
+                          onTap: _showCloseDialog,
+                          child: Container(
+                            width: double.infinity,
+                            height: AppResponsive.h(52),
+                            decoration: BoxDecoration(
+                              color: const Color(0xffFFEAEC),
+                              borderRadius: BorderRadius.circular(
+                                AppResponsive.radiusMd,
                               ),
                             ),
-                          ],
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: AppResponsive.sp(18),
+                                ),
+                                SizedBox(width: AppResponsive.w(8)),
+                                Text(
+                                  'Close Account',
+                                  style: TextStyle(
+                                    fontSize: AppResponsive.fs(14),
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
 
-                    context.spaceHPx(40),
-                  ],
+                      SizedBox(height: AppResponsive.h(36)),
+                    ],
+                  ),
                 ),
               ),
     );
   }
+}
 
-  // ─────────────────────────────────────────────
-  // WIDGETS
-  // ─────────────────────────────────────────────
-  Widget _fieldLabel(String label) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.black87,
-      ),
-    );
-  }
+class _Label extends StatelessWidget {
+  final String t;
+  const _Label(this.t);
+  @override
+  Widget build(BuildContext context) => Text(
+    t,
+    style: TextStyle(
+      fontSize: AppResponsive.fs(13),
+      fontWeight: FontWeight.w500,
+      color: Colors.black87,
+    ),
+  );
+}
 
-  Widget _editableField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: const Color(0xffFBFCFF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xffDEE0E5)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          Icon(icon, size: 20, color: const Color(0xff737373)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              style: const TextStyle(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: Color(0xffA3A3A3),
-                  fontSize: 14,
-                ),
-                border: InputBorder.none,
-                isDense: true,
+class _EditField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final TextInputType type;
+  const _EditField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.type = TextInputType.text,
+  });
+  @override
+  Widget build(BuildContext context) => Container(
+    height: AppResponsive.h(52),
+    decoration: BoxDecoration(
+      color: const Color(0xffFBFCFF),
+      borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+      border: Border.all(color: const Color(0xffDEE0E5)),
+    ),
+    child: Row(
+      children: [
+        SizedBox(width: AppResponsive.w(12)),
+        Icon(icon, size: AppResponsive.sp(18), color: const Color(0xff737373)),
+        SizedBox(width: AppResponsive.w(10)),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: type,
+            style: TextStyle(fontSize: AppResponsive.fs(13)),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: const Color(0xffA3A3A3),
+                fontSize: AppResponsive.fs(13),
               ),
+              border: InputBorder.none,
+              isDense: true,
             ),
           ),
-          const SizedBox(width: 14),
-        ],
-      ),
-    );
-  }
+        ),
+        SizedBox(width: AppResponsive.w(12)),
+      ],
+    ),
+  );
+}
 
-  Widget _readOnlyField({
-    required String value,
-    required IconData icon,
-    VoidCallback? onCopy,
-  }) {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: const Color(0xffF5F5F5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xffEEEEEE)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          Icon(icon, size: 20, color: const Color(0xffA3A3A3)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              value.isEmpty ? 'Not set' : value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xff737373),
-                letterSpacing: 0.5,
-              ),
+class _ReadField extends StatelessWidget {
+  final String value;
+  final IconData icon;
+  final VoidCallback? onCopy;
+  const _ReadField({required this.value, required this.icon, this.onCopy});
+  @override
+  Widget build(BuildContext context) => Container(
+    height: AppResponsive.h(52),
+    decoration: BoxDecoration(
+      color: const Color(0xffF5F5F5),
+      borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+      border: Border.all(color: const Color(0xffEEEEEE)),
+    ),
+    child: Row(
+      children: [
+        SizedBox(width: AppResponsive.w(12)),
+        Icon(icon, size: AppResponsive.sp(18), color: const Color(0xffA3A3A3)),
+        SizedBox(width: AppResponsive.w(10)),
+        Expanded(
+          child: Text(
+            value.isEmpty ? 'Not set' : value,
+            style: TextStyle(
+              fontSize: AppResponsive.fs(13),
+              color: const Color(0xff737373),
+              letterSpacing: 0.5,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          // Copy button if value exists
-          if (value.isNotEmpty && value != 'Not set' && onCopy != null)
-            GestureDetector(
-              onTap: onCopy,
-              child: const Padding(
-                padding: EdgeInsets.only(right: 14),
-                child: Icon(
-                  Icons.copy_outlined,
-                  size: 18,
-                  color: Color(0xff3B6FE8),
-                ),
-              ),
-            )
-          else
-            const Padding(
-              padding: EdgeInsets.only(right: 14),
+        ),
+        if (value.isNotEmpty && value != 'Not set' && onCopy != null)
+          GestureDetector(
+            onTap: onCopy,
+            child: Padding(
+              padding: EdgeInsets.only(right: AppResponsive.w(12)),
               child: Icon(
-                Icons.lock_outline,
-                size: 16,
-                color: Color(0xffA3A3A3),
+                Icons.copy_outlined,
+                size: AppResponsive.sp(16),
+                color: const Color(0xff3B6FE8),
               ),
             ),
-        ],
-      ),
-    );
-  }
+          )
+        else
+          Padding(
+            padding: EdgeInsets.only(right: AppResponsive.w(12)),
+            child: Icon(
+              Icons.lock_outline,
+              size: AppResponsive.sp(14),
+              color: const Color(0xffA3A3A3),
+            ),
+          ),
+      ],
+    ),
+  );
 }

@@ -1,243 +1,200 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flowpay/features/qr/presentation/pages/qr_scan_page.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
+import 'package:flowpay/features/account/presentation/cubit/account_cubit.dart';
+import 'package:flowpay/features/account/presentation/cubit/account_states.dart';
+import 'package:flowpay/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:flowpay/features/auth/presentation/cubit/auth_state.dart';
 import 'package:flowpay/start_pages/components/main_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
+import 'qr_scan_page.dart';
 
 class QRPage extends StatelessWidget {
   const QRPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    /// Get current user id
-    final String userId = FirebaseAuth.instance.currentUser!.uid;
-
-    /// Debug print to confirm
-    debugPrint("QRPage -> Current UserId inside QR : $userId");
+    AppResponsive.init(context);
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+    final authState = context.watch<AuthCubit>().state;
+    final userName = authState is Authenticated ? authState.user.name : '';
+    final accountState = context.watch<AccountCubit>().state;
+    final phone =
+        accountState is AccountLoaded && accountState.accounts.isNotEmpty
+            ? accountState.accounts.first.phone
+            : '';
 
     return Scaffold(
-      backgroundColor: const Color(0xffFFFFFF),
-
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xffFFFFFF),
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: InkWell(
           onTap: () => Navigator.pop(context),
           child: const Icon(Icons.arrow_back_ios, size: 20),
         ),
         actions: [
           InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const QRScanPage()),
-              );
-            },
+            onTap:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QRScanPage()),
+                ),
             child: Image.asset(
               'assets/transfer/qr_icon.png',
-              height: context.hPx(24),
-              width: context.wPx(24),
+              height: AppResponsive.sp(22),
+              width: AppResponsive.sp(22),
             ),
           ),
-          context.spaceWPx(10),
+          SizedBox(width: AppResponsive.w(10)),
           Image.asset(
             'assets/home/notification.png',
-            height: context.hPx(24),
-            width: context.wPx(24),
+            height: AppResponsive.sp(22),
+            width: AppResponsive.sp(22),
           ),
-          context.spaceWPx(20),
+          SizedBox(width: AppResponsive.w(20)),
         ],
       ),
-
-      body: Padding(
-        padding: context.padSymmetricPx(horizontal: 25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// Titles
-            const Text(
-              'Quick Pay',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
-            ),
-
-            const Text(
-              'Flow pay',
-              style: TextStyle(fontSize: 16, color: Color(0xff737373)),
-            ),
-
-            context.spaceHPx(20),
-
-            /// QR Card
-            Container(
-              height: context.hPx(381),
-              width: double.maxFinite,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: const Color(0xffFFFFFF),
-                border: Border.all(color: const Color(0xffE5E5E5)),
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(25)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Title ────────────────────────────────────────────────
+              AppAnimatedItem(
+                index: 0,
+                direction: SlideDirection.left,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quick Pay',
+                      style: TextStyle(
+                        fontSize: AppResponsive.fs(22),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'Flow pay',
+                      style: TextStyle(
+                        fontSize: AppResponsive.fs(14),
+                        color: const Color(0xff737373),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  /// FlowPay Logo
-                  Image.asset(
-                    'assets/images/flowpay.png',
-                    height: context.hPx(28),
-                    width: context.wPx(157),
+
+              SizedBox(height: AppResponsive.h(20)),
+
+              // ── QR Card — LayoutBuilder so it NEVER overflows ─────────
+              AppAnimatedItem(
+                index: 1,
+                direction: SlideDirection.bottom,
+                child: AppScaleIn(
+                  child: LayoutBuilder(
+                    builder: (context, c) {
+                      // QR size = 44% of available width, clamped
+                      final qrSize = (c.maxWidth * 0.44).clamp(130.0, 200.0);
+
+                      return Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppResponsive.w(20),
+                          vertical: AppResponsive.h(24),
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            AppResponsive.radiusLg,
+                          ),
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xffE5E5E5)),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Logo
+                            Image.asset(
+                              'assets/images/flowpay.png',
+                              height: AppResponsive.h(26),
+                              width: AppResponsive.w(140),
+                            ),
+
+                            SizedBox(height: AppResponsive.h(24)),
+
+                            // QR code
+                            Container(
+                              padding: EdgeInsets.all(AppResponsive.w(8)),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                  AppResponsive.radiusMd,
+                                ),
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: const Color(0xffF0F0F0),
+                                ),
+                              ),
+                              child: QrImageView(
+                                data: userId,
+                                size: qrSize,
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+
+                            SizedBox(height: AppResponsive.h(20)),
+
+                            // Name
+                            Text(
+                              userName.isNotEmpty ? userName : '—',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(16),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+
+                            SizedBox(height: AppResponsive.h(8)),
+
+                            // Phone
+                            Text(
+                              phone.isNotEmpty
+                                  ? 'Account No : $phone'
+                                  : 'Account No : —',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(14),
+                                color: const Color(0xff737373),
+                              ),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-
-                  context.spaceHPx(30),
-
-                  /// REAL QR CODE
-                  Container(
-                    height: context.hPx(170),
-                    width: context.wPx(170),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: QrImageView(
-                      data: userId,
-                      size: 170,
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-
-                  context.spaceHPx(25),
-
-                  /// User Name
-                  const Text(
-                    'Umar Bangash',
-                    style: TextStyle(
-                      fontSize: 17.6,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  context.spaceHPx(10),
-
-                  /// Account Number
-                  const Text(
-                    'Account No : 03269114017',
-                    style: TextStyle(fontSize: 17),
-                  ),
-                ],
+                ),
               ),
-            ),
 
-            const Spacer(),
+              const Spacer(),
 
-            /// Done Button
-            Center(child: MainButton(buttonName: 'Done', onTap: () {})),
+              // ── Done button ───────────────────────────────────────────
+              AppAnimatedItem(
+                index: 2,
+                direction: SlideDirection.bottom,
+                child: MainButton(buttonName: 'Done', onTap: () {}),
+              ),
 
-            context.spaceHPx(100),
-          ],
+              SizedBox(height: AppResponsive.h(40)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
-
-// import 'package:flowpay/features/qr/pages/qr_scan_page.dart';
-// import 'package:flowpay/helpers/ui_responsive_helper.dart';
-// import 'package:flowpay/start_pages/components/main_button.dart';
-// import 'package:flutter/material.dart';
-
-// class QRPage extends StatelessWidget {
-//   const QRPage({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         leading: InkWell(
-//           onTap: () => Navigator.pop(context),
-//           child: Icon(Icons.arrow_back_ios, size: 20),
-//         ),
-//         actions: [
-//           InkWell(
-//             onTap: () {
-//               Navigator.push(
-//                 context,
-//                 MaterialPageRoute(builder: (context) => const QRScanPage()),
-//               );
-//             },
-//             child: Image.asset(
-//               'assets/transfer/qr_icon.png',
-//               height: context.hPx(24),
-//               width: context.wPx(24),
-//             ),
-//           ),
-//           context.spaceWPx(10),
-//           Image.asset(
-//             'assets/home/notification.png',
-//             height: context.hPx(24),
-//             width: context.wPx(24),
-//           ),
-//           context.spaceWPx(20),
-//         ],
-//         backgroundColor: Color(0xffFFFFFF),
-//       ),
-//       body: Padding(
-//         padding: context.padSymmetricPx(horizontal: 25),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Text(
-//               'Quick Pay',
-//               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
-//             ),
-//             Text(
-//               'Flow pay',
-//               style: TextStyle(fontSize: 16, color: Color(0xff737373)),
-//             ),
-//             context.spaceHPx(20),
-//             Container(
-//               height: context.hPx(381.59),
-//               width: double.maxFinite,
-//               decoration: BoxDecoration(
-//                 borderRadius: BorderRadius.circular(20),
-//                 color: Color(0xffFFFFFF),
-//                 border: Border.all(color: Color(0xffE5E5E5)),
-//               ),
-//               child: Column(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 crossAxisAlignment: CrossAxisAlignment.center,
-//                 children: [
-//                   Image.asset(
-//                     'assets/images/flowpay.png',
-//                     height: context.hPx(27.95),
-//                     width: context.wPx(157),
-//                   ),
-//                   context.spaceHPx(20),
-//                   Image.asset(
-//                     'assets/transfer/qrcode.png',
-//                     height: context.hPx(170),
-//                     width: context.wPx(170),
-//                   ),
-//                   context.spaceHPx(20),
-//                   Text(
-//                     'Umar Bangash',
-//                     style: TextStyle(
-//                       fontSize: 17.68,
-//                       fontWeight: FontWeight.w600,
-//                     ),
-//                   ),
-//                   context.spaceHPx(16),
-//                   Text(
-//                     'Account No : 03269114017',
-//                     style: TextStyle(fontSize: 17.68),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//             Spacer(),
-//             Center(child: MainButton(buttonName: 'Done', onTap: () {})),
-//             context.spaceHPx(100),
-//           ],
-//         ),
-//       ),
-//       backgroundColor: Color(0xffFFFFFF),
-//     );
-//   }
-// }

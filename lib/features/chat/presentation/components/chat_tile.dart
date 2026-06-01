@@ -6,15 +6,17 @@ class ChatTile extends StatelessWidget {
   final String name;
   final String message;
   final DateTime dateTime;
+  final String trailingLabel; // pre-formatted time string from parent
   final void Function() onTap;
+
   const ChatTile({
     super.key,
     required this.imagePath,
     required this.name,
     required this.message,
     required this.dateTime,
+    required this.trailingLabel,
     required this.onTap,
-    required String trailingLabel,
   });
 
   @override
@@ -29,6 +31,7 @@ class ChatTile extends StatelessWidget {
               padding: context.padSymmetricPx(horizontal: 20),
               child: Row(
                 children: [
+                  // Avatar
                   Container(
                     width: 43,
                     height: 43,
@@ -37,40 +40,45 @@ class ChatTile extends StatelessWidget {
                       image: DecorationImage(
                         image:
                             imagePath.startsWith('http')
-                                ? NetworkImage(imagePath)
-                                : AssetImage(imagePath) as ImageProvider,
+                                ? NetworkImage(imagePath) as ImageProvider
+                                : AssetImage(imagePath),
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
                   context.spaceWPx(10),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                  // Name + last message preview
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          fontSize: 11.57,
-                          color: Color(0xff707070),
-                          fontWeight: FontWeight.w500,
+                        Text(
+                          message,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.57,
+                            color: Color(0xff707070),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  Spacer(),
+                  // Trailing: formatted time (HH:mm for today, date string otherwise)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10.0),
                     child: Text(
-                      dateTime.toIso8601String(),
-                      style: TextStyle(
+                      trailingLabel,
+                      style: const TextStyle(
                         fontSize: 9.57,
                         fontWeight: FontWeight.w500,
                         color: Color(0xff707070),
@@ -81,7 +89,7 @@ class ChatTile extends StatelessWidget {
               ),
             ),
             context.spaceHPx(8),
-            Divider(color: Color.fromARGB(255, 214, 214, 214)),
+            const Divider(color: Color.fromARGB(255, 214, 214, 214)),
             context.spaceHPx(8),
           ],
         ),

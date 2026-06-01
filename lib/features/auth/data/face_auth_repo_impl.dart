@@ -1,3 +1,5 @@
+// features/auth/data/face_auth_repo_impl.dart
+
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,23 +10,15 @@ import 'package:http/http.dart' as http;
 class FaceAuthRepoImpl implements FaceAuthRepo {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Your friend's HF endpoint
   static const String _embedUrl = 'https://hamadalikhan-faceapi.hf.space/embed';
-
-  // Similarity threshold — tune this (0.80 = lenient, 0.90 = strict)
   static const double _threshold = 0.85;
 
   // ─────────────────────────────────────────────
-  // STEP 1: Call HF API → get embedding vector
-  // Tries 'image' field first, then 'file' field
+  // GET EMBEDDING — tries 'image' then 'file'
   // ─────────────────────────────────────────────
   Future<List<double>?> _getEmbedding(List<int> imageBytes) async {
-    // Try with field name 'image' first
     List<double>? result = await _callEmbedApi(imageBytes, fieldName: 'image');
-
-    // If failed, try with field name 'file'
     result ??= await _callEmbedApi(imageBytes, fieldName: 'file');
-
     return result;
   }
 
@@ -44,7 +38,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
       );
 
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 30),
       );
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -54,8 +48,6 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
 
-        // Handle possible response formats:
-        // { "embedding": [...] }  or  { "embeddings": [...] }  or  [...]
         List<dynamic>? rawList;
 
         if (json is List) {
@@ -81,9 +73,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
   }
 
   // ─────────────────────────────────────────────
-  // STEP 2: Cosine Similarity between 2 vectors
-  // Returns value between -1 and 1
-  // Closer to 1 = same face
+  // COSINE SIMILARITY
   // ─────────────────────────────────────────────
   double _cosineSimilarity(List<double> a, List<double> b) {
     if (a.length != b.length) {
@@ -108,7 +98,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
   }
 
   // ─────────────────────────────────────────────
-  // REGISTER: get embedding → store in Firestore
+  // REGISTER — get embedding → store in Firestore
   // ─────────────────────────────────────────────
   @override
   Future<void> registerFaceEmbedding({
@@ -116,6 +106,9 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     required List<int> imageBytes,
   }) async {
     try {
+      debugPrint('Starting face registration for uid: $uid');
+      debugPrint('Image bytes size: ${imageBytes.length}');
+
       final embedding = await _getEmbedding(imageBytes);
 
       if (embedding == null || embedding.isEmpty) {
@@ -124,12 +117,13 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
 
       debugPrint('Embedding generated: ${embedding.length} dimensions');
 
-      // Store in Firestore under users/{uid}
-      await _firestore.collection('users').doc(uid).update({
-        'faceEmbedding': embedding, // vector stored as List<double>
+      // ✅ set with merge instead of update
+      // handles fresh accounts where doc might not have all fields
+      await _firestore.collection('users').doc(uid).set({
+        'faceEmbedding': embedding,
         'faceRegisteredAt': FieldValue.serverTimestamp(),
         'faceEnabled': true,
-      });
+      }, SetOptions(merge: true));
 
       debugPrint('Face embedding stored successfully for uid: $uid');
     } catch (e) {
@@ -139,7 +133,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
   }
 
   // ─────────────────────────────────────────────
-  // VERIFY: get embedding → fetch stored → compare
+  // VERIFY — get embedding → compare with stored
   // ─────────────────────────────────────────────
   @override
   Future<bool> verifyFace({
@@ -147,7 +141,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     required List<int> imageBytes,
   }) async {
     try {
-      // 1. Get live embedding from camera image
+      // 1. Get live embedding
       final liveEmbedding = await _getEmbedding(imageBytes);
 
       if (liveEmbedding == null || liveEmbedding.isEmpty) {
@@ -171,7 +165,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
       final storedEmbedding =
           rawStored.map((e) => (e as num).toDouble()).toList();
 
-      // 3. Compare using cosine similarity
+      // 3. Compare
       final similarity = _cosineSimilarity(liveEmbedding, storedEmbedding);
 
       debugPrint('Face similarity score: $similarity (threshold: $_threshold)');
@@ -184,7 +178,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
   }
 
   // ─────────────────────────────────────────────
-  // CHECK: does user have a registered face?
+  // CHECK — does user have face registered?
   // ─────────────────────────────────────────────
   @override
   Future<bool> hasFaceRegistered(String uid) async {
@@ -201,7 +195,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
   }
 
   // ─────────────────────────────────────────────
-  // DELETE: reset face registration
+  // DELETE — reset face registration
   // ─────────────────────────────────────────────
   @override
   Future<void> deleteFaceEmbedding(String uid) async {

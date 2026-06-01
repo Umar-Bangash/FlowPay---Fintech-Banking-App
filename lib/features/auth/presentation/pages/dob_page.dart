@@ -1,74 +1,71 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flowpay/start_pages/components/main_button.dart';
 import 'package:flutter/material.dart';
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class DateOfBirthPicker extends StatefulWidget {
   const DateOfBirthPicker({super.key});
-
   @override
   State<DateOfBirthPicker> createState() => _DateOfBirthPickerState();
 }
 
 class _DateOfBirthPickerState extends State<DateOfBirthPicker> {
-  int selectedDay = 23;
-  String selectedMonth = "Jul";
-  int selectedYear = 2003;
-  int age = 0;
+  int _day = 23;
+  String _month = 'Jul';
+  int _year = 2003;
+  int _age = 0;
 
-  final FixedExtentScrollController _dayController =
-      FixedExtentScrollController(initialItem: 22);
-  final FixedExtentScrollController _monthController =
-      FixedExtentScrollController(initialItem: 6);
-  final FixedExtentScrollController _yearController =
-      FixedExtentScrollController(initialItem: 2003 - 1950);
+  final _dayCtrl = FixedExtentScrollController(initialItem: 22);
+  final _monthCtrl = FixedExtentScrollController(initialItem: 6);
+  final _yearCtrl = FixedExtentScrollController(initialItem: 2003 - 1950);
 
-  List<int> days = List.generate(31, (index) => index + 1);
-  List<String> months = const [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+  final _days = List.generate(31, (i) => i + 1);
+  final _months = const [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
-  List<int> years = List.generate(
-    DateTime.now().year - 1949,
-    (index) => 1950 + index,
-  );
+  late final List<int> _years;
 
   @override
   void initState() {
     super.initState();
-    _calculateAge();
-  }
-
-  void _calculateAge() {
-    final today = DateTime.now();
-    int monthIndex = months.indexOf(selectedMonth) + 1;
-    int calculatedAge = today.year - selectedYear;
-    if (today.month < monthIndex ||
-        (today.month == monthIndex && today.day < selectedDay)) {
-      calculatedAge--;
-    }
-    setState(() => age = calculatedAge);
-  }
-
-  DateTime get selectedDateOfBirth {
-    final monthNumber = months.indexOf(selectedMonth) + 1;
-
-    return DateTime(selectedYear, monthNumber, selectedDay);
+    _years = List.generate(DateTime.now().year - 1949, (i) => 1950 + i);
+    _calcAge();
   }
 
   @override
+  void dispose() {
+    _dayCtrl.dispose();
+    _monthCtrl.dispose();
+    _yearCtrl.dispose();
+    super.dispose();
+  }
+
+  void _calcAge() {
+    final now = DateTime.now();
+    final mi = _months.indexOf(_month) + 1;
+    int age = now.year - _year;
+    if (now.month < mi || (now.month == mi && now.day < _day)) age--;
+    setState(() => _age = age);
+  }
+
+  DateTime get _selectedDate =>
+      DateTime(_year, _months.indexOf(_month) + 1, _day);
+
+  @override
   Widget build(BuildContext context) {
-    debugPrint("The value is ${selectedMonth}");
-    const blueColor = Color(0xff007AFF);
+    AppResponsive.init(context);
+    const blue = Color(0xff007AFF);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -83,151 +80,176 @@ class _DateOfBirthPickerState extends State<DateOfBirthPicker> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.wPx(24),
-          vertical: context.hPx(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 8),
-            const Text(
-              "What's Your Date of Birth?",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-                letterSpacing: 0.2,
-              ),
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppResponsive.w(24),
+              vertical: AppResponsive.h(16),
             ),
-            const SizedBox(height: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppAnimatedItem(
+                  index: 0,
+                  direction: SlideDirection.left,
+                  child: Text(
+                    "What's Your Date of Birth?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(22),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
 
-            // Scrollable Date Picker
-            SizedBox(
-              height: context.hPx(200),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                SizedBox(height: AppResponsive.h(36)),
+
+                // ── Wheel picker — height from AppResponsive ─────────────
+                AppAnimatedItem(
+                  index: 1,
+                  direction: SlideDirection.bottom,
+                  child: SizedBox(
+                    height: AppResponsive.h(200),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _wheel<int>(
+                              ctrl: _dayCtrl,
+                              items: _days,
+                              onChange: (i) {
+                                setState(() => _day = _days[i]);
+                                _calcAge();
+                              },
+                            ),
+                            _wheel<String>(
+                              ctrl: _monthCtrl,
+                              items: _months,
+                              onChange: (i) {
+                                setState(() => _month = _months[i]);
+                                _calcAge();
+                              },
+                            ),
+                            _wheel<int>(
+                              ctrl: _yearCtrl,
+                              items: _years,
+                              onChange: (i) {
+                                setState(() => _year = _years[i]);
+                                _calcAge();
+                              },
+                            ),
+                          ],
+                        ),
+
+                        // Selection border — centred with responsive height
+                        Positioned(
+                          top: (AppResponsive.h(200) - AppResponsive.h(50)) / 2,
+                          left: AppResponsive.w(16),
+                          right: AppResponsive.w(16),
+                          child: IgnorePointer(
+                            child: Container(
+                              height: AppResponsive.h(50),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: blue, width: 1.2),
+                                borderRadius: BorderRadius.circular(
+                                  AppResponsive.radiusMd,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(22)),
+
+                // ── Age display ──────────────────────────────────────────
+                AppAnimatedItem(
+                  index: 2,
+                  direction: SlideDirection.right,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildWheel<int>(
-                        controller: _dayController,
-                        items: days,
-                        onSelectedItemChanged: (i) {
-                          setState(() => selectedDay = days[i]);
-                          _calculateAge();
-                        },
+                      Image.asset(
+                        'assets/images/calender_icon.png',
+                        height: AppResponsive.sp(18),
+                        width: AppResponsive.sp(16),
                       ),
-                      _buildWheel<String>(
-                        controller: _monthController,
-                        items: months,
-                        onSelectedItemChanged: (i) {
-                          setState(() => selectedMonth = months[i]);
-                          _calculateAge();
-                        },
-                      ),
-                      _buildWheel<int>(
-                        controller: _yearController,
-                        items: years,
-                        onSelectedItemChanged: (i) {
-                          setState(() => selectedYear = years[i]);
-                          _calculateAge();
-                        },
+                      SizedBox(width: AppResponsive.w(6)),
+                      Text(
+                        'I am $_age years old',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: AppResponsive.fs(14),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
-
-                  Positioned(
-                    top: context.hPx(200) / 2 - context.hPx(26.5),
-                    left: context.wPx(24),
-                    right: context.wPx(24),
-                    child: Container(
-                      height: context.hPx(53),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: blueColor, width: 1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Age Display
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/images/calender_icon.png',
-                  height: context.hPx(19.5),
-                  width: context.wPx(18),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  "I am $age years old",
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+
+                SizedBox(height: AppResponsive.h(40)),
+
+                AppAnimatedItem(
+                  index: 3,
+                  direction: SlideDirection.bottom,
+                  child: MainButton(
+                    buttonName: 'Continue',
+                    onTap: () => Navigator.pop(context, _selectedDate),
                   ),
                 ),
+
+                // Breathing room at bottom so button never clips on SE
+                SizedBox(height: AppResponsive.h(40)),
               ],
             ),
-
-            context.spaceHPx(45),
-            MainButton(
-              buttonName: 'Continue',
-              onTap: () {
-                Navigator.pop(context, selectedDateOfBirth);
-              },
-            ),
-            context.spaceHPx(100),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildWheel<T>({
-    required FixedExtentScrollController controller,
+  Widget _wheel<T>({
+    required FixedExtentScrollController ctrl,
     required List<T> items,
-    required Function(int) onSelectedItemChanged,
+    required Function(int) onChange,
   }) {
     return SizedBox(
-      width: 90,
+      // Width fraction of screen so it scales on all devices
+      width: AppResponsive.w(90),
       child: ListWheelScrollView.useDelegate(
-        controller: controller,
-        itemExtent: 40,
+        controller: ctrl,
+        itemExtent: AppResponsive.h(42),
         perspective: 0.0001,
-        // removes curve completely
         diameterRatio: 10,
         physics: const FixedExtentScrollPhysics(),
-        onSelectedItemChanged: onSelectedItemChanged,
+        onSelectedItemChanged: onChange,
         childDelegate: ListWheelChildBuilderDelegate(
-          builder: (context, index) {
-            if (index < 0 || index >= items.length) return null;
-            final isSelected = controller.selectedItem == index;
+          childCount: items.length,
+          builder: (context, i) {
+            if (i < 0 || i >= items.length) return null;
+            final selected = ctrl.selectedItem == i;
             return Center(
               child: Text(
-                items[index].toString(),
+                items[i].toString(),
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                  fontSize: AppResponsive.fs(19),
+                  fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
                   color:
-                      isSelected
-                          ? const Color.fromARGB(255, 17, 41, 66)
-                          : Colors.black.withOpacity(0.6),
+                      selected
+                          ? const Color(0xff112942)
+                          : Colors.black.withOpacity(0.55),
                 ),
               ),
             );
           },
-          childCount: items.length,
         ),
       ),
     );

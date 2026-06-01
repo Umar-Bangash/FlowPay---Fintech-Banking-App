@@ -8,6 +8,7 @@ class Goal {
   final double savedAmount;
   final DateTime deadline;
   final String categoryId;
+  final bool notifyOnComplete; // ← NEW: persisted to Firestore
 
   Goal({
     required this.goalId,
@@ -17,6 +18,7 @@ class Goal {
     required this.savedAmount,
     required this.deadline,
     required this.categoryId,
+    this.notifyOnComplete = true, // default ON
   });
 
   Goal copyWith({
@@ -27,6 +29,7 @@ class Goal {
     double? savedAmount,
     DateTime? deadline,
     String? categoryId,
+    bool? notifyOnComplete,
   }) {
     return Goal(
       goalId: goalId ?? this.goalId,
@@ -36,6 +39,7 @@ class Goal {
       savedAmount: savedAmount ?? this.savedAmount,
       deadline: deadline ?? this.deadline,
       categoryId: categoryId ?? this.categoryId,
+      notifyOnComplete: notifyOnComplete ?? this.notifyOnComplete,
     );
   }
 
@@ -48,12 +52,12 @@ class Goal {
       'savedAmount': savedAmount,
       'deadline': deadline.toIso8601String(),
       'categoryId': categoryId,
+      'notifyOnComplete': notifyOnComplete,
     };
   }
 
   factory Goal.fromJson(Map<String, dynamic> json) {
     DateTime deadline;
-
     if (json['deadline'] is Timestamp) {
       deadline = (json['deadline'] as Timestamp).toDate();
     } else if (json['deadline'] is String) {
@@ -70,6 +74,8 @@ class Goal {
       savedAmount: (json['savedAmount'] as num?)?.toDouble() ?? 0.0,
       deadline: deadline,
       categoryId: json['categoryId'] ?? 'custom',
+      // Old docs without this field default to true (notify by default)
+      notifyOnComplete: json['notifyOnComplete'] as bool? ?? true,
     );
   }
 }

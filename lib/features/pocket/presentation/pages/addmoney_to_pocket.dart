@@ -7,7 +7,8 @@ import 'package:flowpay/features/pocket/presentation/components/packet_appbar.da
 import 'package:flowpay/features/pocket/presentation/components/pocket_bottom_sheet.dart';
 import 'package:flowpay/features/pocket/presentation/components/pocket_display_card.dart';
 import 'package:flowpay/features/pocket/presentation/components/amount_button.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 import '../../domain/entities/goal.dart';
 import '../components/pocket_icon.dart';
 import '../cubit/goal_cubit.dart';
@@ -15,7 +16,6 @@ import '../cubit/addamount_to_pocket_cubit.dart';
 
 class AddMoneyToPocket extends StatefulWidget {
   final Goal goal;
-
   const AddMoneyToPocket({super.key, required this.goal});
 
   @override
@@ -23,434 +23,389 @@ class AddMoneyToPocket extends StatefulWidget {
 }
 
 class _AddMoneyToPocketState extends State<AddMoneyToPocket> {
-  late TextEditingController amountController;
+  late TextEditingController _amountCtrl;
+  Account? _account;
+  bool _loading = true;
 
-  Account? userAccount;
-  bool isLoadingAccount = true;
+  // PROBLEM 1 FIX: Keep live copies of saved/target fetched fresh from
+  // Firestore. widget.goal is stale — it was passed before the last deposit.
+  late double _liveSavedAmount;
+  late double _liveTargetAmount;
 
   @override
   void initState() {
     super.initState();
-    amountController = TextEditingController();
+    _amountCtrl = TextEditingController();
+    _liveSavedAmount = widget.goal.savedAmount;
+    _liveTargetAmount = widget.goal.targetAmount;
     context.read<PocketAmountCubit>().setAmount(0);
-    _loadUserAccount();
+    _loadData();
   }
 
-  Future<void> _loadUserAccount() async {
-    final userId = FirebaseAuth.instance.currentUser!.uid;
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
 
-    final snapshot =
-        await FirebaseFirestore.instance
-            .collection('accounts')
-            .where('userId', isEqualTo: userId)
-            .limit(1)
-            .get();
+  Future<void> _loadData() async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    if (snapshot.docs.isNotEmpty) {
-      final data = snapshot.docs.first.data();
+    // Fetch account + freshest goal data in parallel
+    final results = await Future.wait([
+      FirebaseFirestore.instance
+          .collection('accounts')
+          .where('userId', isEqualTo: uid)
+          .limit(1)
+          .get(),
+      FirebaseFirestore.instance
+          .collection('goals')
+          .doc(widget.goal.goalId)
+          .get(),
+    ]);
 
-      userAccount = Account(
-        accountId: snapshot.docs.first.id,
-        userId: data['userId'],
-        balance: (data['balance'] as num).toDouble(),
-        phone: data['phone'],
+    final acctSnap = results[0] as QuerySnapshot;
+    final goalSnap = results[1] as DocumentSnapshot;
+
+    if (acctSnap.docs.isNotEmpty) {
+      final d = acctSnap.docs.first.data() as Map<String, dynamic>;
+      _account = Account(
+        accountId: acctSnap.docs.first.id,
+        userId: d['userId'],
+        balance: (d['balance'] as num).toDouble(),
+        phone: d['phone'],
       );
     }
 
-    setState(() {
-      isLoadingAccount = false;
-    });
+    // PROBLEM 1 FIX: Overwrite with the actual current Firestore values
+    if (goalSnap.exists) {
+      final gd = goalSnap.data() as Map<String, dynamic>;
+      _liveSavedAmount = (gd['savedAmount'] as num).toDouble();
+      _liveTargetAmount = (gd['targetAmount'] as num).toDouble();
+    }
+
+    setState(() => _loading = false);
   }
 
-  double calculatePercentage(double saved, double target) {
-    if (target == 0) return 0;
-    return ((saved / target) * 100).clamp(0, 100);
+  double _pct(double s, double t) => t == 0 ? 0 : ((s / t) * 100).clamp(0, 100);
+
+  double _rem(double s, double t) => (t - s).clamp(0, double.infinity);
+
+  Future<void> _confirmDeposit() async {
+    final amt = double.tryParse(_amountCtrl.text) ?? 0;
+    if (amt <= 0 || _account == null) return;
+
+    // PROBLEM 1 FIX: Use the live Firestore values for the cap check
+    final remaining = (_liveTargetAmount - _liveSavedAmount).clamp(
+      0.0,
+      double.infinity,
+    );
+
+    if (remaining == 0) {
+      _showSnackBar('This pocket is already complete!');
+      return;
+    }
+
+    if (amt > remaining) {
+      _showSnackBar(
+        'You are only Rs.${remaining.toStringAsFixed(0)} away from your '
+        'target. You cannot add more than the remaining amount.',
+      );
+      return;
+    }
+
+    await context.read<GoalCubit>().addMoneyToPocket(
+      goal: widget.goal,
+      accountId: _account!.accountId!,
+      amount: amt,
+    );
+    if (mounted) Navigator.pop(context);
   }
 
-  double calculateRemaining(double saved, double target) {
-    final remaining = target - saved;
-    return remaining < 0 ? 0 : remaining;
+  void _showSnackBar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xff1C1C1E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        content: Text(
+          msg,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     final goal = widget.goal;
-
     final icon = pocketIconsList.firstWhere(
-      (element) => element.id == goal.categoryId,
+      (e) => e.id == goal.categoryId,
       orElse: () => pocketIconsList[0],
     );
 
-    final percentage = calculatePercentage(goal.savedAmount, goal.targetAmount);
-
-    final remainingAmount = calculateRemaining(
-      goal.savedAmount,
-      goal.targetAmount,
-    );
-
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: pocketAppBar(
         context,
         'Add Money',
         InkWell(
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (context) => ManagePocketBottomSheet(goal: goal),
-            );
-          },
+          onTap:
+              () => showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (_) => ManagePocketBottomSheet(goal: goal),
+              ),
           child: const Icon(Icons.more_vert_outlined),
         ),
       ),
-      body: Padding(
-        padding: context.padSymmetricPx(horizontal: 25),
-        child: SafeArea(
-          child:
-              isLoadingAccount
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        context.spaceHPx(20),
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(25)),
+          child: SafeArea(
+            child:
+                _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: AppResponsive.h(18)),
 
-                        /// Pocket Display Card (UNCHANGED UI)
-                        PocketDisplayCard(
-                          pocketImage: icon.imagePath,
-                          pocketName: goal.goalName,
-                          saveAmount: goal.savedAmount,
-                          targetAmount: goal.targetAmount,
-                          percentage: percentage,
-                          remainAmount: remainingAmount,
-                        ),
-
-                        context.spaceHPx(10),
-                        const Text(
-                          'Enter Amount',
-                          style: TextStyle(fontSize: 16),
-                        ),
-
-                        /// Amount Input
-                        BlocListener<PocketAmountCubit, int>(
-                          listener: (context, amount) {
-                            amountController.text = amount.toString();
-                          },
-                          child: TextFormField(
-                            controller: amountController,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            decoration: const InputDecoration(
-                              prefixText: 'RS  ',
-                              prefixStyle: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xffA3A3A3),
+                          // Pocket card — shows live amounts from Firestore
+                          AppAnimatedItem(
+                            index: 0,
+                            direction: SlideDirection.bottom,
+                            child: PocketDisplayCard(
+                              pocketImage: icon.imagePath,
+                              pocketName: goal.goalName,
+                              saveAmount: _liveSavedAmount,
+                              targetAmount: _liveTargetAmount,
+                              percentage: _pct(
+                                _liveSavedAmount,
+                                _liveTargetAmount,
                               ),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Color(0xffDADADA),
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Color(0xffDADADA),
-                                  width: 1.5,
-                                ),
+                              remainAmount: _rem(
+                                _liveSavedAmount,
+                                _liveTargetAmount,
                               ),
                             ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (value) {
-                              context.read<PocketAmountCubit>().setAmount(
-                                int.tryParse(value) ?? 0,
-                              );
-                            },
                           ),
-                        ),
 
-                        context.spaceHPx(15),
-                        _amountButtons(),
-                        context.spaceHPx(20),
+                          SizedBox(height: AppResponsive.h(14)),
 
-                        const Text(
-                          'From Account',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        context.spaceHPx(20),
-
-                        /// Account Card (UI KEPT SAME)
-                        Container(
-                          height: context.hPx(74),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: const Color(0xffFAFAFA),
+                          AppAnimatedItem(
+                            index: 1,
+                            direction: SlideDirection.left,
+                            child: Text(
+                              'Enter Amount',
+                              style: TextStyle(fontSize: AppResponsive.fs(15)),
+                            ),
                           ),
-                          child: ListTile(
-                            leading: Image.asset('assets/pocket/bank.png'),
-                            title: const Text(
-                              'Main Savings Account',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+
+                          SizedBox(height: AppResponsive.h(8)),
+
+                          // PROBLEM 2 FIX: Rs is a plain Text in a Row —
+                          // lives completely outside InputDecoration so it
+                          // is ALWAYS rendered regardless of focus state.
+                          AppAnimatedItem(
+                            index: 2,
+                            direction: SlideDirection.right,
+                            child: BlocListener<PocketAmountCubit, int>(
+                              listener:
+                                  (_, amt) =>
+                                      _amountCtrl.text =
+                                          amt == 0 ? '' : amt.toString(),
+                              child: _RsInputRow(
+                                controller: _amountCtrl,
+                                fontSize: AppResponsive.fs(22),
+                                onChanged:
+                                    (v) => context
+                                        .read<PocketAmountCubit>()
+                                        .setAmount(int.tryParse(v) ?? 0),
                               ),
                             ),
-                            subtitle: Row(
+                          ),
+
+                          SizedBox(height: AppResponsive.h(14)),
+
+                          // Quick amount buttons
+                          AppAnimatedItem(
+                            index: 3,
+                            direction: SlideDirection.bottom,
+                            child: Row(
                               children: [
-                                const Text(
-                                  '****4017',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xff353535),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Balance: Rs ${userAccount?.balance.toStringAsFixed(0) ?? 0}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xffA3A3A3),
-                                  ),
-                                ),
+                                Expanded(child: amountButton(500)),
+                                SizedBox(width: AppResponsive.w(8)),
+                                Expanded(child: amountButton(1000)),
+                                SizedBox(width: AppResponsive.w(8)),
+                                Expanded(child: amountButton(5000)),
                               ],
                             ),
-                            trailing: Image.asset(
-                              'assets/pocket/downarrow.png',
-                              height: 24,
-                              width: 24,
+                          ),
+
+                          SizedBox(height: AppResponsive.h(20)),
+
+                          AppAnimatedItem(
+                            index: 4,
+                            direction: SlideDirection.left,
+                            child: Text(
+                              'From Account',
+                              style: TextStyle(fontSize: AppResponsive.fs(15)),
                             ),
                           ),
-                        ),
 
-                        const Spacer(),
+                          SizedBox(height: AppResponsive.h(12)),
 
-                        /// Confirm Button
-                        InkWell(
-                          onTap: () async {
-                            final depositAmount =
-                                double.tryParse(amountController.text) ?? 0;
-
-                            if (depositAmount <= 0) return;
-                            if (userAccount == null) return;
-
-                            await context.read<GoalCubit>().addMoneyToPocket(
-                              goal: goal,
-                              accountId: userAccount!.accountId!,
-                              amount: depositAmount,
-                            );
-
-                            if (mounted) {
-                              Navigator.pop(context);
-                            }
-                          },
-                          child: Container(
-                            height: context.hPx(56),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              color: const Color(0xff007AFF),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'Confirm Deposit',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xffFFFFFF),
+                          // Account tile
+                          AppAnimatedItem(
+                            index: 5,
+                            direction: SlideDirection.right,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                  AppResponsive.radiusLg,
+                                ),
+                                color: const Color(0xffFAFAFA),
+                              ),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: AppResponsive.w(14),
+                                  vertical: AppResponsive.h(4),
+                                ),
+                                leading: Image.asset(
+                                  'assets/pocket/bank.png',
+                                  height: AppResponsive.sp(32),
+                                  width: AppResponsive.sp(32),
+                                ),
+                                title: Text(
+                                  'Main Savings Account',
+                                  style: TextStyle(
+                                    fontSize: AppResponsive.fs(13),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Balance: Rs ${_account?.balance.toStringAsFixed(0) ?? 0}',
+                                  style: TextStyle(
+                                    fontSize: AppResponsive.fs(11),
+                                    color: const Color(0xffA3A3A3),
+                                  ),
+                                ),
+                                trailing: Image.asset(
+                                  'assets/pocket/downarrow.png',
+                                  height: AppResponsive.sp(20),
+                                  width: AppResponsive.sp(20),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+
+                          SizedBox(height: AppResponsive.h(28)),
+
+                          // Confirm button
+                          AppAnimatedItem(
+                            index: 6,
+                            direction: SlideDirection.bottom,
+                            child: InkWell(
+                              onTap: _confirmDeposit,
+                              child: Container(
+                                width: double.infinity,
+                                height: AppResponsive.h(54),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                    AppResponsive.radiusMd,
+                                  ),
+                                  color: const Color(0xff007AFF),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Confirm Deposit',
+                                    style: TextStyle(
+                                      fontSize: AppResponsive.fs(15),
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: AppResponsive.h(24)),
+                        ],
+                      ),
                     ),
-                  ),
+          ),
         ),
       ),
-      backgroundColor: const Color(0xffFFFFFF),
-    );
-  }
-
-  Widget _amountButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [amountButton(500), amountButton(1000), amountButton(5000)],
     );
   }
 }
 
-// import 'package:flowpay/features/pocket/presentation/components/packet_appbar.dart';
-// import 'package:flowpay/features/pocket/presentation/cubit/addamount_to_pocket_cubit.dart';
-// import 'package:flowpay/helpers/ui_responsive_helper.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import '../components/amount_button.dart';
-// import '../components/pocket_bottom_sheet.dart';
-// import '../components/pocket_display_card.dart';
+/// PROBLEM 2 FIX: "Rs" is a plain [Text] widget inside a [Row],
+/// completely outside [InputDecoration]. This guarantees it is always
+/// visible — no dependency on focus, no Flutter quirks with prefixText
+/// or prefix: widgets.
+class _RsInputRow extends StatelessWidget {
+  final TextEditingController controller;
+  final double fontSize;
+  final ValueChanged<String>? onChanged;
 
-// class AddMoneyToPocket extends StatelessWidget {
-//   AddMoneyToPocket({super.key});
+  const _RsInputRow({
+    required this.controller,
+    required this.fontSize,
+    this.onChanged,
+  });
 
-//   final amountController = TextEditingController();
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: pocketAppBar(
-//         context,
-//         'Add Money ',
-//         InkWell(
-//           onTap: () {
-//             showModalBottomSheet(
-//               context: context,
-//               backgroundColor: Colors.transparent,
-//               isScrollControlled: true,
-//               builder:
-//                   (context) => ManagePocketBottomSheet(
-//                     pocketImage: 'assets/pocket/travel.png',
-//                     pocketName: 'pocketName',
-//                     targetAmount: 0.0,
-//                   ),
-//             );
-//           },
-//           child: Icon(Icons.more_vert_outlined),
-//         ),
-//       ),
-//       body: SizedBox(
-//         width: double.maxFinite,
-//         child: Padding(
-//           padding: context.padSymmetricPx(horizontal: 25),
-//           child: SafeArea(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 context.spaceHPx(20),
-//                 PocketDisplayCard(
-//                   pocketImage: 'assets/pocket/travel.png',
-//                   pocketName: 'pocketName',
-//                   saveAmount: 0,
-//                   targetAmount: 0.0,
-//                   percentage: 000,
-//                   remainAmount: 00000,
-//                 ),
-//                 context.spaceHPx(10),
-//                 Text('Enter Amount', style: TextStyle(fontSize: 16)),
-//                 BlocListener<PocketAmountCubit, int>(
-//                   listener: (context, amount) {
-//                     amountController.text = amount.toString();
-//                   },
-//                   child: TextFormField(
-//                     controller: amountController,
-//                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-//                     decoration: InputDecoration(
-//                       prefixText: 'RS  ',
-//                       prefixStyle: TextStyle(
-//                         fontSize: 16,
-//                         fontWeight: FontWeight.bold,
-//                         color: Color(0xffA3A3A3),
-//                       ),
-//                       enabledBorder: UnderlineInputBorder(
-//                         borderSide: BorderSide(
-//                           color: Color(0xffDADADA),
-//                           width: 1,
-//                         ),
-//                       ),
-//                       focusedBorder: UnderlineInputBorder(
-//                         borderSide: BorderSide(
-//                           color: Color(0xffDADADA),
-//                           width: 1.5,
-//                         ),
-//                       ),
-//                     ),
-//                     onChanged: (value) {
-//                       context.read<PocketAmountCubit>().setAmount(
-//                         int.tryParse(value) ?? 0,
-//                       );
-//                     },
-//                   ),
-//                 ),
-//                 context.spaceHPx(15),
-//                 _amountButtons(),
-//                 context.spaceHPx(20),
-//                 Text('From Account', style: TextStyle(fontSize: 16)),
-//                 context.spaceHPx(20),
-//                 Container(
-//                   height: context.hPx(74),
-//                   decoration: BoxDecoration(
-//                     borderRadius: BorderRadius.circular(20),
-//                     color: Color(0xffFAFAFA),
-//                   ),
-//                   child: ListTile(
-//                     leading: Image.asset('assets/pocket/bank.png'),
-//                     title: Text(
-//                       'Main Savings Account',
-//                       style: TextStyle(
-//                         fontSize: 14,
-//                         fontWeight: FontWeight.w500,
-//                       ),
-//                     ),
-//                     subtitle: Row(
-//                       children: [
-//                         Text(
-//                           '****4017',
-//                           style: TextStyle(
-//                             fontSize: 12,
-//                             color: Color(0xff353535),
-//                           ),
-//                         ),
-//                         context.spaceWPx(12),
-//                         Text(
-//                           'Balance: Rs 45,200',
-//                           style: TextStyle(
-//                             fontSize: 12,
-//                             color: Color(0xffA3A3A3),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                     trailing: Image.asset(
-//                       'assets/pocket/downarrow.png',
-//                       height: context.hPx(24),
-//                       width: context.wPx(24),
-//                     ),
-//                   ),
-//                 ),
-//                 Spacer(),
-//                 InkWell(
-//                   onTap: () {},
-//                   child: Container(
-//                     height: context.hPx(56),
-//                     decoration: BoxDecoration(
-//                       borderRadius: BorderRadius.circular(16),
-//                       color: Color(0xff007AFF),
-//                     ),
-//                     child: Center(
-//                       child: Text(
-//                         'Confirm Deposit',
-//                         style: TextStyle(
-//                           fontSize: 16,
-//                           fontWeight: FontWeight.w700,
-//                           color: Color(0xffFFFFFF),
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//       backgroundColor: Color(0xffFFFFFF),
-//     );
-//   }
-
-//   Widget _amountButtons() {
-//     return Row(
-//       mainAxisAlignment: MainAxisAlignment.spaceAround,
-//       children: [amountButton(500), amountButton(1000), amountButton(5000)],
-//     );
-//   }
-// }
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Always-visible "Rs" label — not inside TextField at all
+        Text(
+          'Rs',
+          style: TextStyle(
+            fontSize: fontSize * 0.7,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xffA3A3A3),
+          ),
+        ),
+        SizedBox(width: AppResponsive.w(8)),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            onChanged: onChanged,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+            decoration: InputDecoration(
+              hintText: '0',
+              hintStyle: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xffDADADA),
+              ),
+              isDense: true,
+              contentPadding: EdgeInsets.only(bottom: AppResponsive.h(6)),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xffDADADA), width: 1),
+              ),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xff007AFF), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -1,6 +1,5 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class BiometricTile extends StatelessWidget {
   final String imagePath;
@@ -8,6 +7,7 @@ class BiometricTile extends StatelessWidget {
   final String subtitle;
   final bool switchValue;
   final ValueChanged<bool> onChange;
+
   const BiometricTile({
     super.key,
     required this.imagePath,
@@ -19,50 +19,59 @@ class BiometricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return Container(
-      padding: context.padSymmetricPx(horizontal: 10),
-      width: context.wPx(342),
-      height: context.hPx(110),
-      decoration: BoxDecoration(
-        border: Border.all(color: Color(0xffDEE0E5)),
-        borderRadius: BorderRadius.circular(16),
+      width: double.infinity, // ← was context.wPx(342), now fluid
+      padding: EdgeInsets.symmetric(
+        horizontal: AppResponsive.w(12),
+        vertical: AppResponsive.h(14),
       ),
-      child: ListTile(
-        leading: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Image.asset(
-              imagePath,
-              height: context.hPx(32),
-              width: context.wPx(32),
-            ),
-          ],
-        ),
-        title: Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xff2F394E),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xffDEE0E5)),
+        borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon
+          Image.asset(
+            imagePath,
+            height: AppResponsive.sp(30),
+            width: AppResponsive.sp(30),
+          ),
+          SizedBox(width: AppResponsive.w(12)),
+          // Text block
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: AppResponsive.fs(16),
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff2F394E),
+                  ),
                 ),
-              ),
-              CupertinoSwitch(value: switchValue, onChanged: onChange),
-            ],
+                SizedBox(height: AppResponsive.h(5)),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: AppResponsive.fs(12),
+                    color: const Color(0xff737373),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: Color(0xff737373),
+          // Switch — no fixed size, just let it sit
+          Padding(
+            padding: EdgeInsets.only(top: AppResponsive.h(2)),
+            child: CupertinoSwitch(value: switchValue, onChanged: onChange),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -1,5 +1,5 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class CardDetail extends StatelessWidget {
   final Widget image;
@@ -19,30 +19,36 @@ class CardDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+    final imgSz = AppResponsive.sp(52).clamp(40.0, 66.0);
     return Padding(
-      padding: context.padSymmetricPx(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppResponsive.w(14),
+        vertical: AppResponsive.h(10),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: context.hPx(60),
-            width: context.wPx(60),
+            height: imgSz,
+            width: imgSz,
             decoration: BoxDecoration(
               color: imageCardColor,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
             ),
             child: Center(child: image),
           ),
-          context.spaceHPx(14),
+          SizedBox(height: AppResponsive.h(10)),
           Text(
             name,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: AppResponsive.fs(12),
               fontWeight: FontWeight.bold,
               color: titleColor,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          context.spaceHPx(6),
+          SizedBox(height: AppResponsive.h(4)),
           subTitle,
         ],
       ),

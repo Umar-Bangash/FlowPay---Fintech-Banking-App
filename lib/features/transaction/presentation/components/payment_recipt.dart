@@ -1,5 +1,6 @@
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class PaymentRecipt extends StatelessWidget {
   final double amount;
@@ -9,6 +10,7 @@ class PaymentRecipt extends StatelessWidget {
   final DateTime dateAndTime;
   final String paymentMethod;
   final String transactionID;
+
   const PaymentRecipt({
     super.key,
     required this.amount,
@@ -22,55 +24,97 @@ class PaymentRecipt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return Column(
       children: [
+        // Amounts card
         Container(
-          padding: context.padSymmetricPx(horizontal: 25, vertical: 20),
-          height: context.hPx(136),
-          width: double.maxFinite,
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: AppResponsive.w(20),
+            vertical: AppResponsive.h(16),
+          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Color(0xffE5E5E5)),
+            borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
+            border: Border.all(color: const Color(0xffE5E5E5)),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              resuableRow('Amount', amount.toString()),
-              resuableRow('Service Fee (Incl. Tax)', serviceFee.toString()),
-              resuableRow('Total Amount', totalAmount.toString()),
+              _Row('Amount', amount.toStringAsFixed(2)),
+              _divider(),
+              _Row('Service Fee (Incl. Tax)', serviceFee.toStringAsFixed(2)),
+              _divider(),
+              _Row('Total Amount', totalAmount.toStringAsFixed(2)),
             ],
           ),
         ),
-        context.spaceHPx(24),
+
+        SizedBox(height: AppResponsive.h(16)),
+
+        // Details card
         Container(
-          padding: context.padSymmetricPx(horizontal: 25, vertical: 20),
-          height: context.hPx(170),
-          width: double.maxFinite,
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: AppResponsive.w(20),
+            vertical: AppResponsive.h(16),
+          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Color(0xffE5E5E5)),
+            borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
+            border: Border.all(color: const Color(0xffE5E5E5)),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              resuableRow('Recipent', reciverName),
-              resuableRow('Date & Time', dateAndTime.toIso8601String()),
-              resuableRow('Payment Method', paymentMethod),
-              resuableRow('Transaction ID', transactionID),
+              _Row('Recipient', reciverName),
+              _divider(),
+              _Row('Date & Time', _fmtDate(dateAndTime)),
+              _divider(),
+              _Row('Payment Method', paymentMethod),
+              _divider(),
+              _Row('Transaction ID', transactionID, mono: true),
             ],
           ),
         ),
       ],
     );
   }
+
+  Widget _divider() => Padding(
+    padding: EdgeInsets.symmetric(vertical: AppResponsive.h(8)),
+    child: const Divider(height: 1, color: Color(0xffF0F0F0)),
+  );
+
+  String _fmtDate(DateTime d) =>
+      '${d.day}/${d.month}/${d.year}  ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-Widget resuableRow(String fieldName, String value) {
-  return Row(
+class _Row extends StatelessWidget {
+  final String label, value;
+  final bool mono;
+  const _Row(this.label, this.value, {this.mono = false});
+  @override
+  Widget build(BuildContext context) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      Text(fieldName, style: TextStyle(fontSize: 12, color: Color(0xff737373))),
-      Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: AppResponsive.fs(12),
+          color: const Color(0xff737373),
+        ),
+      ),
+      Flexible(
+        child: Text(
+          value,
+          textAlign: TextAlign.end,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: AppResponsive.fs(12),
+            fontWeight: FontWeight.w500,
+            fontFamily: mono ? 'monospace' : null,
+          ),
+        ),
+      ),
     ],
   );
 }

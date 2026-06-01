@@ -1,20 +1,22 @@
 import 'package:flowpay/features/auth/domain/repo/biometric_auth_repo.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:local_auth/local_auth.dart';
 
 class BiometricAuthImpl implements BiometricAuthRepo {
-  final LocalAuthentication _localAuth = LocalAuthentication();
+  // ── Direct channel to our native BiometricHelper ──
+  // This bypasses local_auth entirely and uses
+  // BiometricPrompt with BIOMETRIC_STRONG (fingerprint only)
+  static const _channel = MethodChannel('com.example.flow_pay/biometric');
+
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  // Store email + password securely after successful login
   @override
   Future<void> saveCredentials(String email, String password) async {
     await _secureStorage.write(key: 'email', value: email);
     await _secureStorage.write(key: 'password', value: password);
   }
 
-  // Retrieve stored credentials
   @override
   Future<Map<String, String?>> getStoredCredentials() async {
     final email = await _secureStorage.read(key: 'email');
@@ -22,61 +24,30 @@ class BiometricAuthImpl implements BiometricAuthRepo {
     return {'email': email, 'password': password};
   }
 
-  // Clear stored credentials on logout
   @override
   Future<void> clearCredentials() async {
     await _secureStorage.delete(key: 'email');
     await _secureStorage.delete(key: 'password');
   }
 
+  // ─────────────────────────────────────────────
+  // FINGERPRINT ONLY
+  // Uses BiometricPrompt with BIOMETRIC_STRONG
+  // PIN / pattern / face are NOT accepted
+  // User MUST touch the fingerprint sensor
+  // ─────────────────────────────────────────────
   @override
   Future<bool> authenticateWithFingerprint() async {
     try {
-      final isSupported = await _localAuth.isDeviceSupported();
-      final canCheck = await _localAuth.canCheckBiometrics;
-      if (!isSupported || !canCheck) return false;
-
-      final available = await _localAuth.getAvailableBiometrics();
-      if (!available.contains(BiometricType.fingerprint)) {
-        debugPrint('Fingerprint not available on this device');
-        return false;
-      }
-
-      return await _localAuth.authenticate(
-        localizedReason: 'Use your fingerprint to log in securely',
-        /* options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),*/
-      );
+      debugPrint('=== CALLING NATIVE CHANNEL ===');
+      final canAuth =
+          await _channel.invokeMethod<bool>('canAuthenticate') ?? false;
+      debugPrint('canAuthenticate: $canAuth');
+      final result = await _channel.invokeMethod<bool>('authenticate') ?? false;
+      debugPrint('Fingerprint result: $result');
+      return result;
     } catch (e) {
-      debugPrint('Fingerprint authentication error: $e');
-      return false;
-    }
-  }
-
-  @override
-  Future<bool> authenticateWithFaceId() async {
-    try {
-      final isSupported = await _localAuth.isDeviceSupported();
-      final canCheck = await _localAuth.canCheckBiometrics;
-      if (!isSupported || !canCheck) return false;
-
-      final available = await _localAuth.getAvailableBiometrics();
-      if (!available.contains(BiometricType.face)) {
-        debugPrint('Face ID not available on this device');
-        return false;
-      }
-
-      return await _localAuth.authenticate(
-        localizedReason: 'Authenticate using Face ID',
-        /* options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),*/
-      );
-    } catch (e) {
-      debugPrint('Face ID authentication error: $e');
+      debugPrint('=== CHANNEL ERROR: $e ===');
       return false;
     }
   }

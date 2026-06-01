@@ -1,7 +1,8 @@
 import 'package:flowpay/features/transaction/presentation/pages/transfer_money.dart';
-import 'package:flowpay/start_pages/components/main_button.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class RequestMoneyCard extends StatelessWidget {
   final String name;
@@ -27,7 +28,7 @@ class RequestMoneyCard extends StatelessWidget {
     this.onReject,
   });
 
-  Color _statusColor() {
+  Color get _statusColor {
     switch (status.toLowerCase()) {
       case 'accepted':
         return const Color(0xff22C55E);
@@ -40,15 +41,20 @@ class RequestMoneyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Always centered in chat — not aligned left/right like text bubbles
+    AppResponsive.init(context);
+
     return Center(
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-        width: MediaQuery.of(context).size.width * 0.85,
-        padding: const EdgeInsets.all(18),
+        margin: EdgeInsets.symmetric(
+          vertical: AppResponsive.h(10),
+          horizontal: AppResponsive.w(16),
+        ),
+        // Width = 85% of screen, no fixed height
+        width: AppResponsive.wp(85),
+        padding: EdgeInsets.all(AppResponsive.w(16)),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.07),
@@ -57,164 +63,208 @@ class RequestMoneyCard extends StatelessWidget {
             ),
           ],
         ),
+        // ── KEY FIX: mainAxisSize.min so Column never tries to fill ──────
+        //    the unbounded height of its ListView parent
         child: Column(
+          mainAxisSize: MainAxisSize.min, // ← THE fix
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Avatar + Title ──
+            // ── Avatar + title ─────────────────────────────────────────
             Center(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: AppResponsive.sp(48),
+                    height: AppResponsive.sp(48),
                     decoration: BoxDecoration(
                       color: const Color(0xffE6ECFF),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(
+                        AppResponsive.radiusMd,
+                      ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.person,
-                      color: Color(0xff6B7280),
-                      size: 28,
+                      color: const Color(0xff6B7280),
+                      size: AppResponsive.sp(26),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: AppResponsive.h(8)),
                   Text(
                     '$name requesting money',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 15,
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(14),
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff1F2937),
+                      color: const Color(0xff1F2937),
                     ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 18),
+            SizedBox(height: AppResponsive.h(16)),
 
-            // ── Detail Rows ──
-            _detailRow('Request Amount', 'PKR $amount'),
-            const SizedBox(height: 10),
-            _detailRow('Purpose', purpose),
-            const SizedBox(height: 10),
-            _detailRow(
+            // ── Detail rows ────────────────────────────────────────────
+            _DetailRow('Request Amount', 'PKR $amount'),
+            SizedBox(height: AppResponsive.h(8)),
+            _DetailRow('Purpose', purpose),
+            SizedBox(height: AppResponsive.h(8)),
+            _DetailRow(
               'Return Timeline',
               DateFormat('dd-MM-yyyy').format(timeLine),
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: AppResponsive.h(12)),
             const Divider(color: Color(0xffE5E7EB)),
-            const SizedBox(height: 10),
+            SizedBox(height: AppResponsive.h(8)),
 
-            // ── Note ──
-            const Text(
+            // ── Note ───────────────────────────────────────────────────
+            Text(
               'Note',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: AppResponsive.fs(11),
                 fontWeight: FontWeight.bold,
-                color: Color(0xff9CA3AF),
+                color: const Color(0xff9CA3AF),
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: AppResponsive.h(4)),
             Text(
               note.isEmpty ? 'No note provided' : note,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: Color(0xff374151),
+              style: TextStyle(
+                fontSize: AppResponsive.fs(13),
+                color: const Color(0xff374151),
               ),
             ),
 
-            const SizedBox(height: 18),
+            SizedBox(height: AppResponsive.h(14)),
 
-            // ── Status badge always shown first ──
-            _buildStatusBadge(),
+            // ── Status badge ────────────────────────────────────────────
+            _StatusBadge(status: status, color: _statusColor),
 
-            const SizedBox(height: 12),
+            SizedBox(height: AppResponsive.h(10)),
 
-            // ── Action area ──
-            if (isMe) ...[
-              // Sender: only badge (already shown above), nothing else
-            ] else ...[
+            // ── Action buttons — plain containers, NO Expanded ──────────
+            if (!isMe) ...[
               if (status.toLowerCase() == 'pending') ...[
-                // Receiver + pending → Accept / Reject buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: MainButton(
-                        buttonName: 'Accept',
-                        onTap: () => onAccept?.call(),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: MainButton(
-                        buttonName: 'Reject',
-                        onTap: () => onReject?.call(),
-                      ),
-                    ),
-                  ],
+                _ActionBtn(
+                  label: 'Accept',
+                  bgColor: const Color(0xff007AFF),
+                  onTap: () => onAccept?.call(),
+                ),
+                SizedBox(height: AppResponsive.h(8)),
+                _ActionBtn(
+                  label: 'Reject',
+                  bgColor: const Color(0xffEF4444),
+                  onTap: () => onReject?.call(),
                 ),
               ] else if (status.toLowerCase() == 'accepted') ...[
-                // Receiver + accepted → Pay button
-                MainButton(
-                  buttonName: 'Pay money request',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => TransferMoney()),
-                    );
-                  },
+                _ActionBtn(
+                  label: 'Pay money request',
+                  bgColor: const Color(0xff007AFF),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => TransferMoney()),
+                      ),
                 ),
               ],
-              // rejected → only badge shown above, no button
             ],
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildStatusBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+// ── Plain button — width:double.infinity, height fixed ─────────────────────
+// Does NOT use Expanded internally so it works inside unbounded-height Column
+class _ActionBtn extends StatelessWidget {
+  final String label;
+  final Color bgColor;
+  final VoidCallback onTap;
+  const _ActionBtn({
+    required this.label,
+    required this.bgColor,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+    child: Container(
+      width: double.infinity,
+      height: AppResponsive.h(46),
       decoration: BoxDecoration(
-        color: _statusColor().withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
       ),
-      child: Text(
-        status.toUpperCase(),
-        style: TextStyle(
-          color: _statusColor(),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
+      child: Center(
+        child: Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Color(0xff9CA3AF)),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xff1F2937),
-            ),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: AppResponsive.fs(14),
+            fontWeight: FontWeight.w600,
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ),
+  );
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  final Color color;
+  const _StatusBadge({required this.status, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(
+      horizontal: AppResponsive.w(10),
+      vertical: AppResponsive.h(5),
+    ),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      status.toUpperCase(),
+      style: TextStyle(
+        color: color,
+        fontSize: AppResponsive.fs(11),
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.5,
+      ),
+    ),
+  );
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label, value;
+  const _DetailRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: AppResponsive.fs(12),
+          color: const Color(0xff9CA3AF),
+        ),
+      ),
+      Flexible(
+        child: Text(
+          value,
+          textAlign: TextAlign.right,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: AppResponsive.fs(12),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xff1F2937),
+          ),
+        ),
+      ),
+    ],
+  );
 }

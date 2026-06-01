@@ -4,10 +4,11 @@ import 'package:flowpay/features/bill_payment/presentation/components/bill_pages
 import 'package:flowpay/features/bill_payment/presentation/pages/bill_summary_page.dart';
 import 'package:flowpay/features/bill_payment/presentation/cubit/bill_cubit.dart';
 import 'package:flowpay/features/bill_payment/presentation/cubit/bill_states.dart';
-import 'package:flowpay/helpers/text_styles.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class BillDetailPage extends StatelessWidget {
   BillDetailPage({
@@ -18,11 +19,11 @@ class BillDetailPage extends StatelessWidget {
 
   final String providerName;
   final String category;
-
-  final numberController = TextEditingController();
+  final _numCtrl = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
     return BlocListener<BillCubit, BillState>(
@@ -35,7 +36,6 @@ class BillDetailPage extends StatelessWidget {
             ),
           );
         }
-
         if (state is BillError) {
           ScaffoldMessenger.of(
             context,
@@ -43,380 +43,259 @@ class BillDetailPage extends StatelessWidget {
         }
       },
       child: Scaffold(
+        backgroundColor: Colors.white,
         appBar: billAppBar(context, 'Enter Bill Details'),
-        body: Padding(
-          padding: context.padSymmetricPx(horizontal: 25),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              context.spaceHPx(40),
+        body: AppAnimatedPage(
+          direction: SlideDirection.bottom,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(25)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: AppResponsive.h(36)),
 
-              boldBigText('Pay Your Bill'),
-
-              context.spaceHPx(6),
-
-              Text(
-                'Enter your Consumer ID or Account Number as\nmentioned on your physical bill to proceed with the\npayment.',
-                style: TextStyle(fontSize: 14, color: Color(0xff64748B)),
-              ),
-
-              context.spaceHPx(25),
-
-              Text(
-                'CONSUMER ID / ACCOUNT NUMBER',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xff64748B),
-                ),
-              ),
-
-              context.spaceHPx(10),
-
-              TextFormField(
-                controller: numberController,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Color(0xffF8FAFC),
-                  hintText: 'e.g. 20074356256900',
-                  hintStyle: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xffCBD5E1),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Color(0xffF1F5F9)),
-                  ),
-                  suffixIcon: Padding(
-                    padding: const EdgeInsets.only(
-                      top: 8.0,
-                      bottom: 8,
-                      right: 18,
-                    ),
-                    child: Image.asset(
-                      'assets/bill/qr_scan.png',
-                      height: context.hPx(32),
-                      width: context.wPx(24.02),
+                // ── Title ─────────────────────────────────────────────
+                AppAnimatedItem(
+                  index: 0,
+                  direction: SlideDirection.left,
+                  child: Text(
+                    'Pay Your Bill',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(22),
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ),
 
-              context.spaceHPx(12),
+                SizedBox(height: AppResponsive.h(6)),
 
-              /// SCAN BILL CARD
-              DottedBorder(
-                options: RoundedRectDottedBorderOptions(
-                  color: const Color(0xffE2E8F0),
-                  strokeWidth: 1.5,
-                  dashPattern: const [6, 3],
-                  radius: const Radius.circular(16),
+                AppAnimatedItem(
+                  index: 1,
+                  direction: SlideDirection.right,
+                  child: Text(
+                    'Enter your Consumer ID or Account Number as\n'
+                    'mentioned on your physical bill to proceed.',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(13),
+                      color: const Color(0xff64748B),
+                      height: 1.5,
+                    ),
+                  ),
                 ),
-                child: Container(
-                  height: context.hPx(82),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: ListTile(
-                      dense: true,
-                      minVerticalPadding: 0,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        height: context.hPx(48),
-                        width: context.wPx(48),
-                        decoration: BoxDecoration(
-                          color: const Color(0xffDBEAFE),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: context.padAllPx(10),
-                        child: Image.asset('assets/bill/bill.png'),
+
+                SizedBox(height: AppResponsive.h(22)),
+
+                // ── Label ─────────────────────────────────────────────
+                AppAnimatedItem(
+                  index: 2,
+                  direction: SlideDirection.left,
+                  child: Text(
+                    'CONSUMER ID / ACCOUNT NUMBER',
+                    style: TextStyle(
+                      fontSize: AppResponsive.fs(11),
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff64748B),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(10)),
+
+                // ── Input field ───────────────────────────────────────
+                AppAnimatedItem(
+                  index: 3,
+                  direction: SlideDirection.right,
+                  child: TextFormField(
+                    controller: _numCtrl,
+                    style: TextStyle(fontSize: AppResponsive.fs(15)),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xffF8FAFC),
+                      hintText: 'e.g. 20074356256900',
+                      hintStyle: TextStyle(
+                        fontSize: AppResponsive.fs(15),
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xffCBD5E1),
                       ),
-                      title: const Text(
-                        'Scan physical bill',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppResponsive.radiusMd,
                         ),
+                        borderSide: const BorderSide(color: Color(0xffF1F5F9)),
                       ),
-                      subtitle: const Text(
-                        'Quickly capture ID from barcode',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xff64748B),
+                      suffixIcon: Padding(
+                        padding: EdgeInsets.only(
+                          top: AppResponsive.h(8),
+                          bottom: AppResponsive.h(8),
+                          right: AppResponsive.w(16),
                         ),
-                      ),
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        color: Color(0xffCBD5E1),
-                        size: 12,
+                        child: Image.asset(
+                          'assets/bill/qr_scan.png',
+                          height: AppResponsive.h(28),
+                          width: AppResponsive.w(22),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
-              context.spaceHPx(16),
+                SizedBox(height: AppResponsive.h(12)),
 
-              /// TIP BOX
-              Container(
-                height: context.hPx(73),
-                decoration: BoxDecoration(
-                  color: Color(0xffFFFBEB),
-                  border: Border.all(color: Color(0xffFEF3C7)),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: context.padAllPx(10),
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        'assets/bill/tipicon.png',
-                        height: context.hPx(24),
-                        width: context.wPx(24),
+                // ── Scan bill card ────────────────────────────────────
+                AppAnimatedItem(
+                  index: 4,
+                  direction: SlideDirection.left,
+                  child: DottedBorder(
+                    options: RoundedRectDottedBorderOptions(
+                      color: const Color(0xffE2E8F0),
+                      strokeWidth: 1.5,
+                      dashPattern: const [6, 3],
+                      radius: const Radius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppResponsive.w(14),
+                        vertical: AppResponsive.h(14),
                       ),
-                      context.spaceWPx(10),
-                      Text(
-                        'You can find the Consumer ID at the top right\ncorner of your electricity, water, or gas bill.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xff92400E),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              context.spaceHPx(20),
-
-              /// FETCH BILL BUTTON
-              InkWell(
-                onTap: () {
-                  context.read<BillCubit>().fetchBill(
-                    userId: userId,
-                    providerName: providerName,
-                    consumerId: numberController.text,
-                    category: category,
-                  );
-                },
-                child: Container(
-                  height: context.hPx(60),
-                  decoration: BoxDecoration(
-                    color: Color(0xff007AFF),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Fetch Bill',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xffFFFFFF),
+                      child: Row(
+                        children: [
+                          Container(
+                            height: AppResponsive.sp(44),
+                            width: AppResponsive.sp(44),
+                            decoration: BoxDecoration(
+                              color: const Color(0xffDBEAFE),
+                              borderRadius: BorderRadius.circular(
+                                AppResponsive.radiusSm,
+                              ),
+                            ),
+                            padding: EdgeInsets.all(AppResponsive.sp(9)),
+                            child: Image.asset('assets/bill/bill.png'),
                           ),
+                          SizedBox(width: AppResponsive.w(12)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Scan physical bill',
+                                  style: TextStyle(
+                                    fontSize: AppResponsive.fs(13),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Quickly capture ID from barcode',
+                                  style: TextStyle(
+                                    fontSize: AppResponsive.fs(11),
+                                    color: const Color(0xff64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            color: const Color(0xffCBD5E1),
+                            size: AppResponsive.sp(12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(14)),
+
+                // ── Tip box ───────────────────────────────────────────
+                AppAnimatedItem(
+                  index: 5,
+                  direction: SlideDirection.right,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xffFFFBEB),
+                      border: Border.all(color: const Color(0xffFEF3C7)),
+                      borderRadius: BorderRadius.circular(
+                        AppResponsive.radiusMd,
+                      ),
+                    ),
+                    padding: EdgeInsets.all(AppResponsive.w(12)),
+                    child: Row(
+                      children: [
+                        Image.asset(
+                          'assets/bill/tipicon.png',
+                          height: AppResponsive.sp(22),
+                          width: AppResponsive.sp(22),
                         ),
-                        context.spaceWPx(10),
-                        Icon(
-                          Icons.arrow_forward,
-                          color: Color(0xffFFFFFF),
-                          size: 20,
+                        SizedBox(width: AppResponsive.w(10)),
+                        Expanded(
+                          child: Text(
+                            'You can find the Consumer ID at the top right\n'
+                            'corner of your electricity, water, or gas bill.',
+                            style: TextStyle(
+                              fontSize: AppResponsive.fs(11),
+                              color: const Color(0xff92400E),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-            ],
+
+                SizedBox(height: AppResponsive.h(20)),
+
+                // ── Fetch bill button ─────────────────────────────────
+                AppAnimatedItem(
+                  index: 6,
+                  direction: SlideDirection.bottom,
+                  child: InkWell(
+                    onTap:
+                        () => context.read<BillCubit>().fetchBill(
+                          userId: userId,
+                          providerName: providerName,
+                          consumerId: _numCtrl.text,
+                          category: category,
+                        ),
+                    borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+                    child: Container(
+                      width: double.infinity,
+                      height: AppResponsive.h(56),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff007AFF),
+                        borderRadius: BorderRadius.circular(
+                          AppResponsive.radiusMd,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Fetch Bill',
+                            style: TextStyle(
+                              fontSize: AppResponsive.fs(15),
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: AppResponsive.w(8)),
+                          Icon(
+                            Icons.arrow_forward,
+                            color: Colors.white,
+                            size: AppResponsive.sp(18),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(30)),
+              ],
+            ),
           ),
         ),
-        backgroundColor: Color(0xffFFFFFF),
       ),
     );
   }
 }
-
-// import 'package:dotted_border/dotted_border.dart';
-// import 'package:flowpay/features/bill_payment/presentation/components/bill_pages_appbar.dart';
-// import 'package:flowpay/features/bill_payment/presentation/pages/bill_summary_page.dart';
-// import 'package:flowpay/helpers/text_styles.dart';
-// import 'package:flowpay/helpers/ui_responsive_helper.dart';
-// import 'package:flutter/material.dart';
-
-// class BillDetailPage extends StatelessWidget {
-//   BillDetailPage({super.key});
-
-//   final numberController = TextEditingController();
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: billAppBar(context, 'Enter Bill Details'),
-//       body: Padding(
-//         padding: context.padSymmetricPx(horizontal: 25),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             context.spaceHPx(40),
-//             boldBigText('Pay Your Bill'),
-//             context.spaceHPx(6),
-//             Text(
-//               'Enter your Consumer ID or Account Number as\nmentioned on your physical bill to proceed with the\npayment.',
-//               style: TextStyle(fontSize: 14, color: Color(0xff64748B)),
-//             ),
-//             context.spaceHPx(25),
-//             Text(
-//               'CONSUMER ID / ACCOUNT NUMBER',
-//               style: TextStyle(
-//                 fontSize: 12,
-//                 fontWeight: FontWeight.w500,
-//                 color: Color(0xff64748B),
-//               ),
-//             ),
-//             context.spaceHPx(10),
-//             TextFormField(
-//               controller: numberController,
-//               decoration: InputDecoration(
-//                 filled: true,
-//                 fillColor: Color(0xffF8FAFC),
-//                 hintText: 'e.g. 20074356256900',
-//                 hintStyle: TextStyle(
-//                   fontSize: 18,
-//                   fontWeight: FontWeight.w500,
-//                   color: Color(0xffCBD5E1),
-//                 ),
-//                 enabledBorder: OutlineInputBorder(
-//                   borderRadius: BorderRadius.circular(16),
-//                   borderSide: BorderSide(color: Color(0xffF1F5F9)),
-//                 ),
-//                 suffixIcon: Padding(
-//                   padding: const EdgeInsets.only(
-//                     top: 8.0,
-//                     bottom: 8,
-//                     right: 18,
-//                   ),
-//                   child: Image.asset(
-//                     'assets/bill/qr_scan.png',
-//                     height: context.hPx(32),
-//                     width: context.wPx(24.02),
-//                   ),
-//                 ),
-//               ),
-//             ),
-//             context.spaceHPx(12),
-//             DottedBorder(
-//               options: RoundedRectDottedBorderOptions(
-//                 color: const Color(0xffE2E8F0),
-//                 strokeWidth: 1.5,
-//                 dashPattern: const [6, 3],
-//                 radius: const Radius.circular(16),
-//               ),
-//               child: Container(
-//                 height: context.hPx(82),
-//                 padding: const EdgeInsets.symmetric(horizontal: 16),
-//                 child: Center(
-//                   child: ListTile(
-//                     dense: true,
-//                     minVerticalPadding: 0,
-//                     contentPadding: EdgeInsets.zero,
-//                     leading: Container(
-//                       height: context.hPx(48),
-//                       width: context.wPx(48),
-//                       decoration: BoxDecoration(
-//                         color: const Color(0xffDBEAFE),
-//                         borderRadius: BorderRadius.circular(12),
-//                       ),
-//                       padding: context.padAllPx(10),
-//                       child: Image.asset('assets/bill/bill.png'),
-//                     ),
-//                     title: const Text(
-//                       'Scan physical bill',
-//                       style: TextStyle(
-//                         fontSize: 14,
-//                         fontWeight: FontWeight.w600,
-//                       ),
-//                     ),
-//                     subtitle: const Text(
-//                       'Quickly capture ID from barcode',
-//                       style: TextStyle(fontSize: 12, color: Color(0xff64748B)),
-//                     ),
-//                     trailing: const Icon(
-//                       Icons.arrow_forward_ios,
-//                       color: Color(0xffCBD5E1),
-//                       size: 12,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ),
-//             context.spaceHPx(16),
-//             Container(
-//               height: context.hPx(73),
-//               decoration: BoxDecoration(
-//                 color: Color(0xffFFFBEB),
-//                 border: Border.all(color: Color(0xffFEF3C7)),
-//                 borderRadius: BorderRadius.circular(16),
-//               ),
-//               child: Padding(
-//                 padding: context.padAllPx(10),
-//                 child: Row(
-//                   children: [
-//                     Image.asset(
-//                       'assets/bill/tipicon.png',
-//                       height: context.hPx(24),
-//                       width: context.wPx(24),
-//                     ),
-//                     context.spaceWPx(10),
-//                     Text(
-//                       'You can find the Consumer ID at the top right\ncorner of your electricity, water, or gas bill.',
-//                       style: TextStyle(fontSize: 12, color: Color(0xff92400E)),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ),
-//             context.spaceHPx(20),
-//             InkWell(
-//               onTap: () {
-//                 Navigator.push(
-//                   context,
-//                   MaterialPageRoute(builder: (context) => BillSummaryPage()),
-//                 );
-//               },
-//               child: Container(
-//                 height: context.hPx(60),
-//                 decoration: BoxDecoration(
-//                   color: Color(0xff007AFF),
-//                   borderRadius: BorderRadius.circular(16),
-//                 ),
-//                 child: Center(
-//                   child: Row(
-//                     mainAxisAlignment: MainAxisAlignment.center,
-//                     children: [
-//                       Text(
-//                         'Fetch Bill',
-//                         style: TextStyle(
-//                           fontSize: 16,
-//                           fontWeight: FontWeight.w700,
-//                           color: Color(0xffFFFFFF),
-//                         ),
-//                       ),
-//                       context.spaceWPx(10),
-//                       Icon(
-//                         Icons.arrow_forward,
-//                         color: Color(0xffFFFFFF),
-//                         size: 20,
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//       backgroundColor: Color(0xffFFFFFF),
-//     );
-//   }
-// }

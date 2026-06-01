@@ -2,87 +2,117 @@ import 'package:flowpay/features/pocket/presentation/components/packet_appbar.da
 import 'package:flowpay/features/pocket/presentation/components/pocket_category_card.dart';
 import 'package:flowpay/features/pocket/presentation/cubit/pocket_category_cubit.dart';
 import 'package:flowpay/features/pocket/presentation/pages/create_pocket_page.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class PocketCategory extends StatelessWidget {
   const PocketCategory({super.key});
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     final cubit = context.read<PocketCategoryCubit>();
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: pocketAppBar(
         context,
         'My Pocket',
         Image.asset(
           'assets/home/notification.png',
-          height: context.hPx(24),
-          width: context.wPx(24),
+          height: AppResponsive.sp(22),
+          width: AppResponsive.sp(22),
         ),
       ),
-      body: Padding(
-        padding: context.padSymmetricPx(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'What are you saving for?',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-            ),
-            Text(
-              'Choose a present or create your custom\npocket',
-              style: TextStyle(fontSize: 13, color: Color(0xff0A0A0A)),
-            ),
-            context.spaceHPx(10),
-            Expanded(
-              child: BlocBuilder<PocketCategoryCubit, PocketCategoryState>(
-                builder: (context, state) {
-                  return GridView.builder(
-                    itemCount: pocketsList.length,
-                    physics: NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 172 / 126,
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(20)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: AppResponsive.h(8)),
+
+              AppAnimatedItem(
+                index: 0,
+                direction: SlideDirection.left,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'What are you saving for?',
+                      style: TextStyle(
+                        fontSize: AppResponsive.fs(22),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    itemBuilder: (context, index) {
-                      final pocket = pocketsList[index];
-                      debugPrint("pocket id is ${pocket.id}");
-                      return PocketCategoryCard(
-                        id: pocket.id,
-                        pocketImage: pocket.pocketImage,
-                        pocketName: pocket.pocketName,
-                        onClick: () {
-                          cubit.selectPocket(index);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => CreatePocketPage(
-                                    categoryId: pocket.id,
-                                    categoryImage:
-                                        index == 7 ? null : pocket.pocketImage,
-                                    categoryName:
-                                        index == 7 ? null : pocket.pocketName,
-                                    index: index == 7 ? null : index,
-                                  ),
-                            ),
+                    SizedBox(height: AppResponsive.h(4)),
+                    Text(
+                      'Choose a preset or create your custom pocket',
+                      style: TextStyle(
+                        fontSize: AppResponsive.fs(12),
+                        color: const Color(0xff737373),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: AppResponsive.h(14)),
+
+              Expanded(
+                child: AppAnimatedItem(
+                  index: 1,
+                  direction: SlideDirection.bottom,
+                  child: BlocBuilder<PocketCategoryCubit, PocketCategoryState>(
+                    builder: (context, state) {
+                      return GridView.builder(
+                        itemCount: pocketsList.length,
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: AppResponsive.w(14),
+                          mainAxisSpacing: AppResponsive.h(14),
+                          // aspect ratio driven by available width — safe on all screens
+                          childAspectRatio: 172 / 126,
+                        ),
+                        itemBuilder: (context, i) {
+                          final pocket = pocketsList[i];
+                          return PocketCategoryCard(
+                            id: pocket.id,
+                            pocketImage: pocket.pocketImage,
+                            pocketName: pocket.pocketName,
+                            isSelected: state.selectedIndex == i,
+                            onClick: () {
+                              cubit.selectPocket(i);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => CreatePocketPage(
+                                        categoryId: pocket.id,
+                                        categoryImage:
+                                            i == 7 ? null : pocket.pocketImage,
+                                        categoryName:
+                                            i == 7 ? null : pocket.pocketName,
+                                        index: i == 7 ? null : i,
+                                      ),
+                                ),
+                              );
+                            },
                           );
                         },
-                        isSelected: state.selectedIndex == index,
                       );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-      backgroundColor: Color(0xffFFFFFF),
     );
   }
 }

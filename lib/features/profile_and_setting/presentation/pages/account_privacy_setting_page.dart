@@ -2,202 +2,200 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flowpay/components/custom_switch.dart';
 import 'package:flowpay/features/profile_and_setting/presentation/cubit/profile_cubit.dart';
 import 'package:flowpay/features/profile_and_setting/presentation/cubit/profile_states.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 import 'edit_profile_page.dart';
 
 class AccountPrivacySettingPage extends StatelessWidget {
   const AccountPrivacySettingPage({super.key});
-
   @override
   Widget build(BuildContext context) {
-    // Fetch fresh profile when page opens
+    AppResponsive.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
-        context.read<ProfileCubit>().fetchProfileUser(uid);
-      }
+      if (uid != null) context.read<ProfileCubit>().fetchProfileUser(uid);
     });
-
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
         leading: InkWell(
           onTap: () => Navigator.pop(context),
           child: const Icon(Icons.arrow_back_ios),
         ),
-        title: const Text(
+        title: Text(
           'Account & Privacy Setting',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: AppResponsive.fs(15),
+            fontWeight: FontWeight.w500,
+          ),
         ),
         actions: [
           Image.asset(
             'assets/home/notification.png',
-            height: context.hPx(24),
-            width: context.wPx(24),
+            height: AppResponsive.sp(22),
+            width: AppResponsive.sp(22),
           ),
-          context.spaceWPx(20),
+          SizedBox(width: AppResponsive.w(20)),
         ],
-        backgroundColor: const Color(0xffFFFFFF),
       ),
-      backgroundColor: const Color(0xffFFFFFF),
       body: BlocBuilder<ProfileCubit, ProfileStates>(
         builder: (context, state) {
           if (state is ProfileLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (state is ProfileLoaded) {
-            final user = state.profileUser;
-
-            return Padding(
-              padding: context.padSymmetricPx(horizontal: 25),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Privacy Setting',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                  context.spaceHPx(10),
-
-                  // ── Privacy toggles ──
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(21),
-                      color: const Color(0xffFBFCFF),
-                    ),
-                    child: Padding(
-                      padding: context.padSymmetricPx(
-                        horizontal: 12,
-                        vertical: 20,
+            final u = state.profileUser;
+            return AppAnimatedPage(
+              direction: SlideDirection.bottom,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(25)),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: AppResponsive.h(16)),
+                      AppAnimatedItem(
+                        index: 0,
+                        direction: SlideDirection.left,
+                        child: Text(
+                          'Privacy Setting',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(13),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        children: [
-                          // Pay with Biometric (Fingerprint)
-                          biometricRow(
-                            context,
-                            image: 'assets/images/fingerprint.png',
-                            name: 'Pay with Biometric',
-                            value: user.fingerprintEnabled ?? false,
-                            onTap: () {
-                              context
-                                  .read<ProfileCubit>()
-                                  .toggleFingerprintEnabled(
-                                    !(user.fingerprintEnabled ?? false),
-                                  );
-                            },
+                      SizedBox(height: AppResponsive.h(10)),
+                      AppAnimatedItem(
+                        index: 1,
+                        direction: SlideDirection.right,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(
+                              AppResponsive.radiusLg,
+                            ),
+                            color: const Color(0xffFBFCFF),
                           ),
-                          context.spaceHPx(16),
-
-                          // Log in with Biometric (Fingerprint)
-                          biometricRow(
-                            context,
-                            image: 'assets/images/fingerprint.png',
-                            name: 'Log in with Biometric',
-                            value: user.fingerprintEnabled ?? false,
-                            onTap: () {
-                              context
-                                  .read<ProfileCubit>()
-                                  .toggleFingerprintEnabled(
-                                    !(user.fingerprintEnabled ?? false),
-                                  );
-                            },
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppResponsive.w(14),
+                            vertical: AppResponsive.h(16),
                           ),
-                          context.spaceHPx(16),
-
-                          // Pay with Face
-                          biometricRow(
-                            context,
-                            image: 'assets/images/face.png',
-                            name: 'Pay with Face',
-                            value: user.faceEnabled ?? false,
-                            onTap: () {
-                              context.read<ProfileCubit>().toggleFaceEnabled(
-                                !(user.faceEnabled ?? false),
-                              );
-                            },
+                          child: Column(
+                            children: [
+                              _BiometricRow(
+                                'assets/images/fingerprint.png',
+                                'Pay with Biometric',
+                                u.fingerprintEnabled ?? false,
+                                () => context
+                                    .read<ProfileCubit>()
+                                    .toggleFingerprintEnabled(
+                                      !(u.fingerprintEnabled ?? false),
+                                    ),
+                              ),
+                              SizedBox(height: AppResponsive.h(14)),
+                              _BiometricRow(
+                                'assets/images/fingerprint.png',
+                                'Log in with Biometric',
+                                u.fingerprintEnabled ?? false,
+                                () => context
+                                    .read<ProfileCubit>()
+                                    .toggleFingerprintEnabled(
+                                      !(u.fingerprintEnabled ?? false),
+                                    ),
+                              ),
+                              SizedBox(height: AppResponsive.h(14)),
+                              _BiometricRow(
+                                'assets/images/face.png',
+                                'Pay with Face',
+                                u.faceEnabled ?? false,
+                                () => context
+                                    .read<ProfileCubit>()
+                                    .toggleFaceEnabled(
+                                      !(u.faceEnabled ?? false),
+                                    ),
+                              ),
+                              SizedBox(height: AppResponsive.h(14)),
+                              _BiometricRow(
+                                'assets/images/face.png',
+                                'Log in with Face',
+                                u.faceEnabled ?? false,
+                                () => context
+                                    .read<ProfileCubit>()
+                                    .toggleFaceEnabled(
+                                      !(u.faceEnabled ?? false),
+                                    ),
+                              ),
+                            ],
                           ),
-                          context.spaceHPx(16),
-
-                          // Log in with Face
-                          biometricRow(
-                            context,
-                            image: 'assets/images/face.png',
-                            name: 'Log in with Face',
-                            value: user.faceEnabled ?? false,
-                            onTap: () {
-                              context.read<ProfileCubit>().toggleFaceEnabled(
-                                !(user.faceEnabled ?? false),
-                              );
-                            },
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-
-                  context.spaceHPx(20),
-
-                  const Text(
-                    'Account Setting',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                  context.spaceHPx(10),
-
-                  // ── Account settings ──
-                  // ── Account settings ──
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(21),
-                      color: const Color(0xffFBFCFF),
-                    ),
-                    child: Padding(
-                      padding: context.padSymmetricPx(
-                        horizontal: 12,
-                        vertical: 12,
+                      SizedBox(height: AppResponsive.h(20)),
+                      AppAnimatedItem(
+                        index: 2,
+                        direction: SlideDirection.left,
+                        child: Text(
+                          'Account Setting',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(13),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        children: [
-                          // CNIC — read only
-                          accountRow(
-                            context,
-                            image: 'assets/setting/cnic.png',
-                            name: 'CNIC',
-                            onTap:
+                      SizedBox(height: AppResponsive.h(10)),
+                      AppAnimatedItem(
+                        index: 3,
+                        direction: SlideDirection.right,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(
+                              AppResponsive.radiusLg,
+                            ),
+                            color: const Color(0xffFBFCFF),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppResponsive.w(14),
+                            vertical: AppResponsive.h(8),
+                          ),
+                          child: Column(
+                            children: [
+                              _AccountRow(
+                                'assets/setting/cnic.png',
+                                'CNIC',
                                 () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => const EditProfilePage(),
                                   ),
                                 ),
-                          ),
-                          const Divider(color: Color(0xffF0F0F0)),
-
-                          // Close Account
-                          accountRow(
-                            context,
-                            image: 'assets/pocket/delete.png',
-                            name: 'Close Account',
-                            onTap:
+                              ),
+                              const Divider(color: Color(0xffF0F0F0)),
+                              _AccountRow(
+                                'assets/pocket/delete.png',
+                                'Close Account',
                                 () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => const EditProfilePage(),
                                   ),
                                 ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                      SizedBox(height: AppResponsive.h(24)),
+                    ],
                   ),
-                ],
+                ),
               ),
             );
           }
-
           return const Center(child: CircularProgressIndicator());
         },
       ),
@@ -205,28 +203,28 @@ class AccountPrivacySettingPage extends StatelessWidget {
   }
 }
 
-Widget biometricRow(
-  BuildContext context, {
-  required String image,
-  required String name,
-  required bool value,
-  required VoidCallback onTap,
-}) {
-  return Row(
+class _BiometricRow extends StatelessWidget {
+  final String image, name;
+  final bool value;
+  final VoidCallback onTap;
+  const _BiometricRow(this.image, this.name, this.value, this.onTap);
+  @override
+  Widget build(BuildContext context) => Row(
     children: [
       Image.asset(
         image,
-        height: context.hPx(24),
-        width: context.wPx(24),
-        color: const Color(0xff000000),
+        height: AppResponsive.sp(22),
+        width: AppResponsive.sp(22),
+        color: Colors.black,
       ),
-      context.spaceWPx(12),
-      Text(name, style: const TextStyle(fontSize: 12.8)),
-      const Spacer(),
+      SizedBox(width: AppResponsive.w(12)),
+      Expanded(
+        child: Text(name, style: TextStyle(fontSize: AppResponsive.fs(12))),
+      ),
       CustomSwitch(
-        width: context.wPx(35),
-        height: context.hPx(18.57),
-        thumbSize: 12.86,
+        width: AppResponsive.w(35),
+        height: AppResponsive.h(19),
+        thumbSize: 13,
         value: value,
         onTap: onTap,
       ),
@@ -234,27 +232,30 @@ Widget biometricRow(
   );
 }
 
-Widget accountRow(
-  BuildContext context, {
-  required String image,
-  required String name,
-  required VoidCallback onTap,
-}) {
-  return Row(
-    children: [
-      Image.asset(
-        image,
-        height: context.hPx(24),
-        width: context.wPx(24),
-        color: const Color(0xff000000),
+class _AccountRow extends StatelessWidget {
+  final String image, name;
+  final VoidCallback onTap;
+  const _AccountRow(this.image, this.name, this.onTap);
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: EdgeInsets.symmetric(vertical: AppResponsive.h(10)),
+      child: Row(
+        children: [
+          Image.asset(
+            image,
+            height: AppResponsive.sp(22),
+            width: AppResponsive.sp(22),
+            color: Colors.black,
+          ),
+          SizedBox(width: AppResponsive.w(12)),
+          Expanded(
+            child: Text(name, style: TextStyle(fontSize: AppResponsive.fs(12))),
+          ),
+          Icon(Icons.arrow_forward_ios, size: AppResponsive.sp(14)),
+        ],
       ),
-      context.spaceWPx(12),
-      Text(name, style: const TextStyle(fontSize: 12.8)),
-      const Spacer(),
-      IconButton(
-        onPressed: onTap,
-        icon: const Icon(Icons.arrow_forward_ios, size: 16),
-      ),
-    ],
+    ),
   );
 }

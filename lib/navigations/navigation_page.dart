@@ -5,36 +5,45 @@ import 'package:flowpay/features/transaction/presentation/pages/transfer_page.da
 import 'package:flowpay/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../helpers/ui_responsive_helper.dart';
 import 'navigation_cubit.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 
 class NavigationPage extends StatelessWidget {
   const NavigationPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
+    // Nav bar height: responsive, clamped so it never clips on short screens
+    final navH = AppResponsive.h(72).clamp(64.0, 84.0);
+    // QR fab size
+    final fabSz = AppResponsive.sp(72).clamp(60.0, 84.0);
+    // Icon container size
+    final iconSz = AppResponsive.sp(40).clamp(34.0, 48.0);
+    // Bottom offset so QR sits centred vertically on the nav bar
+    final fabBottom = (navH - fabSz) / 2 + AppResponsive.bottomBarHeight;
+
     return BlocBuilder<NavigationCubit, int>(
       builder: (context, selectedIndex) {
         return Stack(
           children: [
             Scaffold(
-              backgroundColor: Colors.white70,
-
+              backgroundColor: Colors.white,
               body: IndexedStack(
                 index: selectedIndex,
                 children: [
                   HomePage(),
                   TransferPage(),
-                  QRPage(),
-                  ChatContactPage(),
-                  ProfileSettingPage(),
+                  const QRPage(),
+                  const ChatContactPage(),
+                  const ProfileSettingPage(),
                 ],
               ),
 
               bottomNavigationBar: Container(
-                height: context.hPx(78),
-                width: double.maxFinite,
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                height: navH,
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: const BorderRadius.only(
@@ -43,127 +52,82 @@ class NavigationPage extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.4),
+                      color: Colors.grey.withOpacity(0.35),
                       blurRadius: 7,
                       offset: const Offset(0, -5),
                     ),
                   ],
                 ),
+                // Use Row with equal Expanded slots so items NEVER overflow
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    context.spaceWPx(45),
-
-                    // HOME ICON
-                    GestureDetector(
-                      onTap:
-                          () => context.read<NavigationCubit>().selectPage(0),
-                      child: Container(
-                        height: context.hPx(42),
-                        width: context.wPx(42),
-                        padding: context.padAllPx(8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: selectedIndex == 0 ? Color(0xffE8EDFF) : null,
-                        ),
-                        child: Image.asset(
-                          'assets/navigation/home.png',
-                          height: context.hPx(26),
-                          width: context.wPx(26),
-                        ),
+                    // Home
+                    Expanded(
+                      child: _NavIcon(
+                        asset: 'assets/navigation/home.png',
+                        selected: selectedIndex == 0,
+                        size: iconSz,
+                        onTap:
+                            () => context.read<NavigationCubit>().selectPage(0),
                       ),
                     ),
 
-                    context.spaceWPx(45),
-
-                    // TRANSFER ICON
-                    GestureDetector(
-                      onTap:
-                          () => context.read<NavigationCubit>().selectPage(1),
-                      child: Container(
-                        height: context.hPx(42),
-                        width: context.wPx(42),
-                        padding: context.padAllPx(8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: selectedIndex == 1 ? Color(0xffE8EDFF) : null,
-                        ),
-                        child: Image.asset(
-                          'assets/navigation/transfer.png',
-                          height: context.hPx(26),
-                          width: context.wPx(26),
-                        ),
+                    // Transfer
+                    Expanded(
+                      child: _NavIcon(
+                        asset: 'assets/navigation/transfer.png',
+                        selected: selectedIndex == 1,
+                        size: iconSz,
+                        onTap:
+                            () => context.read<NavigationCubit>().selectPage(1),
                       ),
                     ),
 
-                    const Spacer(),
+                    // Centre gap — where the QR FAB sits
+                    SizedBox(width: fabSz + AppResponsive.w(8)),
 
-                    // CHAT
-                    GestureDetector(
-                      onTap:
-                          () => context.read<NavigationCubit>().selectPage(3),
-                      child: Container(
-                        height: context.hPx(42),
-                        width: context.wPx(42),
-                        padding: context.padAllPx(8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: selectedIndex == 3 ? Color(0xffE8EDFF) : null,
-                        ),
-                        child: Image.asset(
-                          'assets/navigation/chat.png',
-                          height: context.hPx(26),
-                          width: context.wPx(26),
-                        ),
+                    // Chat
+                    Expanded(
+                      child: _NavIcon(
+                        asset: 'assets/navigation/chat.png',
+                        selected: selectedIndex == 3,
+                        size: iconSz,
+                        onTap:
+                            () => context.read<NavigationCubit>().selectPage(3),
                       ),
                     ),
 
-                    context.spaceWPx(45),
-
-                    // PROFILE
-                    GestureDetector(
-                      onTap:
-                          () => context.read<NavigationCubit>().selectPage(4),
-                      child: Container(
-                        height: context.hPx(42),
-                        width: context.wPx(42),
-                        padding: context.padAllPx(8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: selectedIndex == 4 ? Color(0xffE8EDFF) : null,
-                        ),
-                        child: Image.asset(
-                          'assets/navigation/profile.png',
-                          height: context.hPx(26),
-                          width: context.wPx(26),
-                        ),
+                    // Profile
+                    Expanded(
+                      child: _NavIcon(
+                        asset: 'assets/navigation/profile.png',
+                        selected: selectedIndex == 4,
+                        size: iconSz,
+                        onTap:
+                            () => context.read<NavigationCubit>().selectPage(4),
                       ),
                     ),
-
-                    context.spaceWPx(45),
                   ],
                 ),
               ),
             ),
 
+            // ── QR FAB — always horizontally centred, never hardcoded ────────
             Positioned(
-              left: 180,
-              bottom: 18,
+              bottom: fabBottom,
+              left: (AppResponsive.screenWidth - fabSz) / 2,
               child: GestureDetector(
                 onTap: () => context.read<NavigationCubit>().selectPage(2),
                 child: Container(
-                  height: 80,
-                  width: 80,
-                  padding: context.padAllPx(8),
+                  height: fabSz,
+                  width: fabSz,
                   decoration: const BoxDecoration(
-                    color: Color(0xffFFFFFF),
+                    color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: Image.asset(
-                    'assets/navigation/qr.png',
-                    height: context.hPx(72),
-                    width: context.wPx(72),
-                  ),
+                  padding: EdgeInsets.all(AppResponsive.sp(8)),
+                  child: Image.asset('assets/navigation/qr.png'),
                 ),
               ),
             ),
@@ -172,4 +136,41 @@ class NavigationPage extends StatelessWidget {
       },
     );
   }
+}
+
+// ── Reusable nav icon — fills its Expanded slot, never overflows ─────────────
+class _NavIcon extends StatelessWidget {
+  final String asset;
+  final bool selected;
+  final double size;
+  final VoidCallback onTap;
+
+  const _NavIcon({
+    required this.asset,
+    required this.selected,
+    required this.size,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Center(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: size,
+        width: size,
+        padding: EdgeInsets.all(AppResponsive.sp(8)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+          color: selected ? const Color(0xffE8EDFF) : Colors.transparent,
+        ),
+        child: Image.asset(
+          asset,
+          height: AppResponsive.sp(22),
+          width: AppResponsive.sp(22),
+        ),
+      ),
+    ),
+  );
 }

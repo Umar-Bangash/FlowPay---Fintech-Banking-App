@@ -1,9 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flowpay/features/pocket/domain/entities/goal.dart';
 import 'package:flowpay/features/pocket/presentation/cubit/goal_cubit.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 
 class PocketDialog extends StatelessWidget {
   final Goal goal;
@@ -11,95 +11,104 @@ class PocketDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     final cubit = context.read<GoalCubit>();
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
+      ),
+      // insetPadding ensures dialog never touches screen edges
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: AppResponsive.w(24),
+        vertical: AppResponsive.h(40),
+      ),
       child: Padding(
-        padding: context.padSymmetricPx(horizontal: 25, vertical: 8),
-        child: SizedBox(
-          height: context.hPx(210),
-          width: context.wPx(362),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close, size: 24),
-                ),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppResponsive.w(20),
+          vertical: AppResponsive.h(18),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Close
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Icon(Icons.close, size: AppResponsive.sp(22)),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Are you sure to Delete this\npocket?',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+            ),
+
+            SizedBox(height: AppResponsive.h(6)),
+
+            Text(
+              'Are you sure to Delete this pocket?',
+              style: TextStyle(
+                fontSize: AppResponsive.fs(17),
+                fontWeight: FontWeight.w500,
               ),
-              context.spaceHPx(12),
-              Text(
-                'Rs. ${goal.savedAmount.toStringAsFixed(0)} will be transferred back to your\nmain account. This action cannot be undone.',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xff6A7282),
-                  fontWeight: FontWeight.w400,
-                ),
+            ),
+
+            SizedBox(height: AppResponsive.h(10)),
+
+            Text(
+              'Rs. ${goal.savedAmount.toStringAsFixed(0)} will be transferred back '
+              'to your main account. This action cannot be undone.',
+              style: TextStyle(
+                fontSize: AppResponsive.fs(13),
+                color: const Color(0xff6A7282),
               ),
-              context.spaceHPx(16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Cancel Button
-                  InkWell(
+            ),
+
+            SizedBox(height: AppResponsive.h(18)),
+
+            // Buttons — Expanded so they ALWAYS fit any screen width
+            Row(
+              children: [
+                Expanded(
+                  child: _DialogBtn(
+                    label: 'Cancel',
+                    bgColor: Colors.white,
+                    borderColor: const Color(0xffD1D5DC),
+                    textColor: Colors.black,
                     onTap: () => Navigator.pop(context),
-                    child: dialogButton(
-                      context,
-                      const Color(0xffFFFFFF),
-                      const Color(0xffD1D5DC),
-                      'Cancel',
-                      const Color(0xff000000),
-                    ),
                   ),
-                  context.spaceWPx(6),
-                  // Delete Button
-                  InkWell(
+                ),
+                SizedBox(width: AppResponsive.w(8)),
+                Expanded(
+                  child: _DialogBtn(
+                    label: 'Delete',
+                    bgColor: const Color(0xffE7000B),
+                    borderColor: const Color(0xffE7000B),
+                    textColor: Colors.white,
                     onTap: () async {
                       try {
-                        final accountSnap =
+                        final snap =
                             await FirebaseFirestore.instance
                                 .collection('accounts')
                                 .where('userId', isEqualTo: goal.userId)
                                 .limit(1)
                                 .get();
-
-                        if (accountSnap.docs.isEmpty) {
-                          throw Exception("Main account not found");
+                        if (snap.docs.isEmpty) {
+                          throw Exception('Main account not found');
                         }
-
-                        final accountDoc = accountSnap.docs.first;
-                        final currentBalance =
-                            (accountDoc['balance'] as num).toDouble();
-                        final refundAmount = goal.savedAmount;
-
-                        // Batch update: delete goal + refund account
+                        final doc = snap.docs.first;
+                        final balance = (doc['balance'] as num).toDouble();
                         final batch = FirebaseFirestore.instance.batch();
-                        batch.update(accountDoc.reference, {
-                          'balance': currentBalance + refundAmount,
+                        batch.update(doc.reference, {
+                          'balance': balance + goal.savedAmount,
                         });
                         batch.delete(
                           FirebaseFirestore.instance
                               .collection('goals')
                               .doc(goal.goalId),
                         );
-
                         await batch.commit();
-
-                        // Refresh state
                         await cubit.fetchGoals(goal.userId);
-
-                        Navigator.pop(context); // Close dialog
+                        Navigator.pop(context);
                       } catch (e) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(
@@ -107,149 +116,52 @@ class PocketDialog extends StatelessWidget {
                         ).showSnackBar(SnackBar(content: Text(e.toString())));
                       }
                     },
-                    child: dialogButton(
-                      context,
-                      const Color(0xffE7000B),
-                      const Color(0xffE7000B),
-                      'Delete',
-                      const Color(0xffFFFFFF),
-                    ),
                   ),
-                ],
-              ),
-              context.spaceHPx(8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+                ),
+              ],
+            ),
 
-  Widget dialogButton(
-    BuildContext context,
-    Color btnColor,
-    Color btnBorderColor,
-    String buttonName,
-    Color textColor,
-  ) {
-    return Container(
-      height: context.hPx(48),
-      width: context.wPx(152),
-      decoration: BoxDecoration(
-        color: btnColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: btnBorderColor),
-      ),
-      child: Center(
-        child: Text(
-          buttonName,
-          style: TextStyle(fontSize: 16, color: textColor),
+            SizedBox(height: AppResponsive.h(4)),
+          ],
         ),
       ),
     );
   }
 }
 
-// import 'package:flowpay/helpers/ui_responsive_helper.dart';
-// import 'package:flutter/material.dart';
-
-// class PocketDialog extends StatelessWidget {
-//   final double saveAmount;
-//   const PocketDialog({super.key, required this.saveAmount});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Material(
-//       color: Colors.white,
-//       borderRadius: BorderRadius.circular(16),
-//       child: Padding(
-//         padding: context.padSymmetricPx(horizontal: 25, vertical: 8),
-//         child: SizedBox(
-//           height: context.hPx(210),
-//           width: context.wPx(362),
-//           child: Column(
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             mainAxisSize: MainAxisSize.min,
-//             children: [
-//               Align(
-//                 alignment: Alignment.centerRight,
-//                 child: GestureDetector(
-//                   onTap: () => Navigator.pop(context),
-//                   child: const Icon(Icons.close, size: 24),
-//                 ),
-//               ),
-//               Text(
-//                 'Are you sure to Delete this\npocket?',
-//                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-//               ),
-//               context.spaceHPx(12),
-//               Text(
-//                 'Rs. ${saveAmount.toStringAsFixed(00)} will be transferred back to your\nmain account. This action cannot be undone.',
-//                 style: TextStyle(
-//                   fontSize: 14,
-//                   color: Color(0xff6A7282),
-//                   fontWeight: FontWeight.w400,
-//                 ),
-//               ),
-//               context.spaceHPx(16),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   InkWell(
-//                     onTap: () {
-//                       Navigator.pop(context);
-//                     },
-//                     child: dialogButton(
-//                       context,
-//                       Color(0xffFFFFFF),
-//                       Color(0xffD1D5DC),
-//                       'Cancel',
-//                       Color(0xff000000),
-//                     ),
-//                   ),
-//                   context.spaceWPx(6),
-//                   InkWell(
-//                     onTap: () {},
-//                     child: dialogButton(
-//                       context,
-//                       Color(0xffE7000B),
-//                       Color(0xffE7000B),
-//                       'Delete',
-//                       Color(0xffFFFFFF),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               context.spaceHPx(10),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget dialogButton(
-//     BuildContext context,
-//     Color btnColor,
-//     Color btnBorderColor,
-//     String buttonName,
-//     Color textColor,
-//   ) {
-//     return Container(
-//       height: context.hPx(48),
-//       width: context.wPx(152),
-//       decoration: BoxDecoration(
-//         color: btnColor,
-//         borderRadius: BorderRadius.circular(10),
-//         border: Border.all(color: btnBorderColor),
-//       ),
-//       child: Center(
-//         child: Text(
-//           buttonName,
-//           style: TextStyle(fontSize: 16, color: textColor),
-//         ),
-//       ),
-//     );
-//   }
-// }
+class _DialogBtn extends StatelessWidget {
+  final String label;
+  final Color bgColor, borderColor, textColor;
+  final VoidCallback onTap;
+  const _DialogBtn({
+    required this.label,
+    required this.bgColor,
+    required this.borderColor,
+    required this.textColor,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+    child: Container(
+      height: AppResponsive.h(46),
+      width: double.infinity, // fills Expanded
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+        border: Border.all(color: borderColor),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: AppResponsive.fs(14),
+            color: textColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ),
+  );
+}

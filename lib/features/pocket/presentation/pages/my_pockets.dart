@@ -4,400 +4,282 @@ import 'package:flowpay/features/pocket/presentation/components/pocket_display_c
 import 'package:flowpay/features/pocket/presentation/components/pocket_icon.dart';
 import 'package:flowpay/features/pocket/presentation/cubit/goal_cubit.dart';
 import 'package:flowpay/features/pocket/presentation/pages/pocket_display_page.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 import '../cubit/goal_states.dart';
 
 class MyPockets extends StatefulWidget {
   const MyPockets({super.key});
-
   @override
   State<MyPockets> createState() => _MyPocketsState();
 }
 
 class _MyPocketsState extends State<MyPockets> {
-  double calculatePercentage(double saved, double target) {
-    if (target == 0) return 0;
-    return ((saved / target) * 100).clamp(0, 100);
+  double _pct(double saved, double target) =>
+      target == 0 ? 0 : ((saved / target) * 100).clamp(0, 100);
+
+  double _rem(double saved, double target) {
+    final r = target - saved;
+    return r < 0 ? 0 : r;
   }
 
-  double calculateRemaining(double saved, double target) {
-    final remaining = target - saved;
-    return remaining < 0 ? 0 : remaining;
-  }
-
-  double calculateTotalSaved(List<Goal> goals) {
-    return goals.fold(0, (sum, g) => sum + g.savedAmount);
-  }
+  double _totalSaved(List<Goal> goals) =>
+      goals.fold(0, (s, g) => s + g.savedAmount);
 
   @override
   void initState() {
     super.initState();
-    // Fetch goals for current user
-    Future.microtask(() async {
-      await context.read<GoalCubit>().fetchGoals(
+    Future.microtask(
+      () => context.read<GoalCubit>().fetchGoals(
         FirebaseAuth.instance.currentUser!.uid,
-      );
-    });
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
     return Scaffold(
-      backgroundColor: Color(0xffFFFFFF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('My Pockets'),
-        backgroundColor: Color(0xffFFFFFF),
+        title: Text(
+          'My Pockets',
+          style: TextStyle(
+            fontSize: AppResponsive.fs(16),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: InkWell(
+          onTap: () => Navigator.pop(context),
+          child: const Icon(
+            Icons.arrow_back_ios,
+            size: 20,
+            color: Colors.black,
+          ),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your Pockets',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
-              ),
-              Text(
-                'Organize your money your way.',
-                style: TextStyle(fontSize: 13),
-              ),
-              context.spaceHPx(16),
-              BlocBuilder<GoalCubit, GoalState>(
-                builder: (context, state) {
-                  List<Goal> goals = [];
-                  if (state is GoalLoaded) {
-                    // Map dynamic list to Goal objects
-                    goals = state.goals.map((e) => e).toList();
-                  }
+      body: AppAnimatedPage(
+        direction: SlideDirection.bottom,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(24)),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: AppResponsive.h(8)),
 
-                  final totalSaved = calculateTotalSaved(goals);
-                  final activePockets = goals.length;
-
-                  return Stack(
+                // ── Header text ───────────────────────────────────────
+                AppAnimatedItem(
+                  index: 0,
+                  direction: SlideDirection.left,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: context.padSymmetricPx(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        height: context.hPx(144),
-                        width: double.maxFinite,
-                        decoration: BoxDecoration(
-                          color: const Color(0xff21496A),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Total Saved',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Image.asset(
-                                  'assets/home/eye.png',
-                                  height: context.hPx(16),
-                                  width: context.wPx(20),
-                                ),
-                                context.spaceWPx(24),
-                              ],
-                            ),
-                            context.spaceHPx(16),
-                            Text(
-                              'Rs ${totalSaved.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 31,
-                                color: Colors.white,
-                              ),
-                            ),
-                            context.spaceHPx(12),
-                            Text(
-                              '$activePockets active pocket${activePockets != 1 ? "s" : ""}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        'Your Pockets',
+                        style: TextStyle(
+                          fontSize: AppResponsive.fs(22),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      Positioned(
-                        right: 0,
-                        child: Image.asset(
-                          'assets/home/sidecircle.png',
-                          height: context.hPx(81),
+                      SizedBox(height: AppResponsive.h(4)),
+                      Text(
+                        'Organize your money your way.',
+                        style: TextStyle(
+                          fontSize: AppResponsive.fs(13),
+                          color: const Color(0xff737373),
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
-              context.spaceHPx(16),
-              BlocBuilder<GoalCubit, GoalState>(
-                builder: (context, state) {
-                  List<Goal> goals = [];
-                  if (state is GoalLoaded) {
-                    goals = state.goals.map((e) => e).toList();
-                  }
+                  ),
+                ),
 
-                  if (goals.isEmpty) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: Text('No pockets found. Create one!'),
-                      ),
-                    );
-                  }
+                SizedBox(height: AppResponsive.h(14)),
 
-                  return ListView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: goals.length,
-                    itemBuilder: (context, index) {
-                      final eachGoal = goals[index];
-                      final icon = pocketIconsList.firstWhere(
-                        (element) => element.id == eachGoal.categoryId,
-                        orElse: () => pocketIconsList[0],
-                      );
+                // ── Summary card ──────────────────────────────────────
+                AppAnimatedItem(
+                  index: 1,
+                  direction: SlideDirection.right,
+                  child: BlocBuilder<GoalCubit, GoalState>(
+                    builder: (context, state) {
+                      final goals =
+                          state is GoalLoaded ? state.goals : <Goal>[];
+                      final total = _totalSaved(goals);
+                      final active = goals.length;
 
-                      final percentage = calculatePercentage(
-                        eachGoal.savedAmount,
-                        eachGoal.targetAmount,
-                      );
+                      return LayoutBuilder(
+                        builder: (context, c) {
+                          return Stack(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppResponsive.w(20),
+                                  vertical: AppResponsive.h(16),
+                                ),
+                                width: c.maxWidth,
+                                // Height driven by content, not hardcoded
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff21496A),
+                                  borderRadius: BorderRadius.circular(
+                                    AppResponsive.radiusLg,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Total Saved',
+                                          style: TextStyle(
+                                            fontSize: AppResponsive.fs(15),
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Image.asset(
+                                          'assets/home/eye.png',
+                                          height: AppResponsive.sp(16),
+                                          width: AppResponsive.sp(20),
+                                        ),
+                                        SizedBox(width: AppResponsive.w(20)),
+                                      ],
+                                    ),
+                                    SizedBox(height: AppResponsive.h(12)),
+                                    Text(
+                                      'Rs ${total.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: AppResponsive.fs(28, max: 34),
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(height: AppResponsive.h(8)),
+                                    Text(
+                                      '$active active pocket${active != 1 ? "s" : ""}',
+                                      style: TextStyle(
+                                        fontSize: AppResponsive.fs(13),
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
 
-                      final remainingAmount = calculateRemaining(
-                        eachGoal.savedAmount,
-                        eachGoal.targetAmount,
-                      );
-
-                      return InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PocketDisplayPage(goal: eachGoal),
-                            ),
+                              // Decorative circle — top-right
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(
+                                      AppResponsive.radiusLg,
+                                    ),
+                                  ),
+                                  child: Image.asset(
+                                    'assets/home/sidecircle.png',
+                                    height: AppResponsive.h(80),
+                                  ),
+                                ),
+                              ),
+                            ],
                           );
                         },
+                      );
+                    },
+                  ),
+                ),
+
+                SizedBox(height: AppResponsive.h(16)),
+
+                // ── Pockets list ──────────────────────────────────────
+                BlocBuilder<GoalCubit, GoalState>(
+                  builder: (context, state) {
+                    if (state is GoalLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final goals = state is GoalLoaded ? state.goals : <Goal>[];
+
+                    if (goals.isEmpty) {
+                      return Center(
                         child: Padding(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: PocketDisplayCard(
-                            pocketImage: icon.imagePath,
-                            pocketName: eachGoal.goalName,
-                            saveAmount: eachGoal.savedAmount,
-                            targetAmount: eachGoal.targetAmount,
-                            percentage: percentage,
-                            remainAmount: remainingAmount,
+                          padding: EdgeInsets.all(AppResponsive.w(20)),
+                          child: Text(
+                            'No pockets found. Create one!',
+                            style: TextStyle(
+                              fontSize: AppResponsive.fs(14),
+                              color: const Color(0xff737373),
+                            ),
                           ),
                         ),
                       );
-                    },
-                  );
-                },
-              ),
-            ],
+                    }
+
+                    return ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: goals.length,
+                      itemBuilder: (context, i) {
+                        final goal = goals[i];
+                        final icon = pocketIconsList.firstWhere(
+                          (e) => e.id == goal.categoryId,
+                          orElse: () => pocketIconsList[0],
+                        );
+
+                        return AppAnimatedItem(
+                          index: i + 2,
+                          direction:
+                              i.isEven
+                                  ? SlideDirection.left
+                                  : SlideDirection.right,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: AppResponsive.h(12),
+                            ),
+                            child: InkWell(
+                              onTap:
+                                  () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => PocketDisplayPage(goal: goal),
+                                    ),
+                                  ),
+                              child: PocketDisplayCard(
+                                pocketImage: icon.imagePath,
+                                pocketName: goal.goalName,
+                                saveAmount: goal.savedAmount,
+                                targetAmount: goal.targetAmount,
+                                percentage: _pct(
+                                  goal.savedAmount,
+                                  goal.targetAmount,
+                                ),
+                                remainAmount: _rem(
+                                  goal.savedAmount,
+                                  goal.targetAmount,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+
+                SizedBox(height: AppResponsive.h(24)),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
-
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:flowpay/features/pocket/presentation/pages/pocket_display_page.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-
-// import '../../../../helpers/ui_responsive_helper.dart';
-// import '../../domain/entities/goal.dart';
-// import '../components/pocket_display_card.dart';
-// import '../components/pocket_icon.dart';
-// import '../cubit/goal_cubit.dart';
-// import '../cubit/goal_states.dart';
-
-// class MyPockets extends StatefulWidget {
-//   const MyPockets({super.key});
-
-//   @override
-//   State<MyPockets> createState() => _MyPocketsState();
-// }
-
-// class _MyPocketsState extends State<MyPockets> {
-//   late List<Goal> goals;
-
-//   double calculatePercentage(double saved, double target) {
-//     if (target == 0) return 0;
-//     return ((saved / target) * 100).clamp(0, 100);
-//   }
-
-//   double calculateRemaining(double saved, double target) {
-//     final remaining = target - saved;
-//     return remaining < 0 ? 0 : remaining;
-//   }
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     goals = [];
-//     Future.microtask(() async {
-//       await context.read<GoalCubit>().fetchGoals(
-//         FirebaseAuth.instance.currentUser!.uid,
-//       );
-//     });
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       //backgroundColor: Color(0xffFFFFFF),
-//       appBar: AppBar(
-//         title: const Text('My Pockets'),
-//         //backgroundColor: Color(0xffFFFFFF),
-//       ),
-//       body: Padding(
-//         padding: const EdgeInsets.symmetric(horizontal: 28.0),
-//         child: SingleChildScrollView(
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               Text(
-//                 'Your Pockets',
-//                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
-//               ),
-
-//               Text(
-//                 'Organize your money your way.',
-//                 style: TextStyle(fontSize: 13),
-//               ),
-//               context.spaceHPx(16),
-//               Stack(
-//                 children: [
-//                   Container(
-//                     padding: context.padSymmetricPx(
-//                       horizontal: 20,
-//                       vertical: 14,
-//                     ),
-//                     height: context.hPx(144),
-//                     width: double.maxFinite,
-//                     decoration: BoxDecoration(
-//                       color: Color(0xff21496A),
-//                       borderRadius: BorderRadius.circular(20),
-//                     ),
-//                     child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         Row(
-//                           children: [
-//                             Text(
-//                               'Total Saved',
-//                               style: TextStyle(
-//                                 fontSize: 16,
-//                                 color: Color(0xffFFFFFF),
-//                               ),
-//                             ),
-//                             Spacer(),
-//                             Image.asset(
-//                               'assets/home/eye.png',
-//                               height: context.hPx(16),
-//                               width: context.wPx(20),
-//                             ),
-//                             context.spaceWPx(24),
-//                           ],
-//                         ),
-//                         context.spaceHPx(16),
-//                         Text(
-//                           'Rs 9,539.45',
-//                           style: TextStyle(
-//                             fontSize: 31,
-//                             color: Color(0xffFFFFFF),
-//                           ),
-//                         ),
-//                         context.spaceHPx(12),
-//                         Text(
-//                           '0 active pockets',
-//                           style: TextStyle(
-//                             fontSize: 14,
-//                             color: Color(0xffFFFFFF),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                   Positioned(
-//                     right: 0,
-//                     child: Image.asset(
-//                       'assets/home/sidecircle.png',
-//                       height: context.hPx(81),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-
-//               context.spaceHPx(16),
-//               BlocBuilder<GoalCubit, GoalState>(
-//                 builder: (context, state) {
-//                   final goals = state is GoalLoaded ? state.goals : [];
-//                   debugPrint("goal length is ${goals.length}");
-//                   return ListView.builder(
-//                     physics: NeverScrollableScrollPhysics(),
-//                     shrinkWrap: true,
-//                     itemCount: goals.length,
-//                     itemBuilder: (context, index) {
-//                       final eachGoal = goals[index];
-//                       final icon = pocketIconsList.firstWhere(
-//                         (element) => element.id == eachGoal.categoryId,
-//                       );
-
-//                       final percentage = calculatePercentage(
-//                         eachGoal.savedAmount,
-//                         eachGoal.targetAmount,
-//                       );
-
-//                       final remainingAmount = calculateRemaining(
-//                         eachGoal.savedAmount,
-//                         eachGoal.targetAmount,
-//                       );
-
-//                       return InkWell(
-//                         onTap: () {
-//                           Navigator.push(
-//                             context,
-//                             MaterialPageRoute(
-//                               builder:
-//                                   (_) => PocketDisplayPage(
-//                                     pocketImage: icon.imagePath,
-//                                     pocketName: eachGoal.goalName,
-//                                     targetAmount: eachGoal.targetAmount,
-//                                   ),
-//                             ),
-//                           );
-//                         },
-//                         child: PocketDisplayCard(
-//                           pocketImage: icon.imagePath,
-//                           pocketName: eachGoal.goalName,
-//                           saveAmount: eachGoal.savedAmount,
-//                           targetAmount: eachGoal.targetAmount,
-//                           percentage: percentage,
-//                           remainAmount: remainingAmount,
-//                         ),
-//                       );
-//                     },
-//                   );
-//                 },
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }

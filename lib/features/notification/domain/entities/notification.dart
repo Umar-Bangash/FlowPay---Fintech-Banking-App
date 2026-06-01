@@ -8,6 +8,7 @@ class Notifications {
   final DateTime dateTime;
   final String type;
   final bool isRead;
+  final Map<String, dynamic>? data; // ← NEW
 
   Notifications({
     required this.notificationId,
@@ -17,6 +18,7 @@ class Notifications {
     required this.dateTime,
     required this.type,
     this.isRead = false,
+    this.data, // ← NEW
   });
 
   Notifications copyWith({bool? isRead}) {
@@ -28,6 +30,7 @@ class Notifications {
       dateTime: dateTime,
       type: type,
       isRead: isRead ?? this.isRead,
+      data: data, // ← NEW
     );
   }
 
@@ -40,6 +43,7 @@ class Notifications {
       'dateTime': Timestamp.fromDate(dateTime),
       'type': type,
       'isRead': isRead,
+      if (data != null) 'data': data, // ← NEW
     };
   }
 
@@ -50,11 +54,16 @@ class Notifications {
       title: json['title'],
       message: json['message'],
       dateTime:
-          (json['dateTime'] as dynamic) is Timestamp
+          (json['dateTime'] is Timestamp)
               ? (json['dateTime'] as Timestamp).toDate()
               : DateTime.parse(json['dateTime']),
       type: json['type'],
       isRead: json['isRead'] ?? false,
+      data:
+          json['data'] !=
+                  null // ← NEW
+              ? Map<String, dynamic>.from(json['data'])
+              : null,
     );
   }
 }

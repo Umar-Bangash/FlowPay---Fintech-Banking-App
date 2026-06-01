@@ -7,20 +7,18 @@ import 'package:flowpay/features/pocket/presentation/components/pocket_icon.dart
 import 'package:flowpay/features/pocket/presentation/components/pocket_setting_card.dart';
 import 'package:flowpay/features/pocket/presentation/cubit/goal_cubit.dart';
 import 'package:flowpay/features/pocket/presentation/pages/my_pockets.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 import '../components/pocket_created_successfully.dart';
 import '../cubit/goal_states.dart';
 
-class CreatePocketPage extends StatelessWidget {
-  final String? categoryImage;
-  final String? categoryName;
+class CreatePocketPage extends StatefulWidget {
+  final String? categoryImage, categoryName, categoryId;
   final int? index;
-  final String? categoryId;
 
-  CreatePocketPage({
+  const CreatePocketPage({
     super.key,
     required this.categoryImage,
     required this.categoryId,
@@ -28,222 +26,307 @@ class CreatePocketPage extends StatelessWidget {
     required this.index,
   });
 
-  final pocketNameController = TextEditingController();
-  final targetAmountController = TextEditingController();
+  @override
+  State<CreatePocketPage> createState() => _CreatePocketPageState();
+}
+
+class _CreatePocketPageState extends State<CreatePocketPage> {
+  final _nameCtrl = TextEditingController();
+  final _targetCtrl = TextEditingController();
+
+  // FIX 5: Notification toggle state — default ON
+  bool _notifyOnComplete = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final cubit = context.read<PocketIconCubit>();
+    if (widget.categoryName != null) _nameCtrl.text = widget.categoryName!;
+    if (widget.index != null) cubit.selectIcon(widget.index!);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _targetCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    //final userId = FirebaseAuth.instance.currentUser!.uid;
+    AppResponsive.init(context);
     final cubit = context.read<PocketIconCubit>();
-
-    // Pre-fill values if editing
-    if (categoryName != null) pocketNameController.text = categoryName!;
-    if (index != null) cubit.selectIcon(index!);
 
     return BlocConsumer<GoalCubit, GoalState>(
       listener: (context, state) {
         if (state is GoalSuccess) {
-          //final selectedIndex = cubit.state.selectedIndex;
-
-          // // Build Goal object to pass dynamically
-          // final goal = Goal(
-          //   categoryId: pocketIconsList[selectedIndex].id,
-          //   goalId: '', // returned from GoalCubit after creation
-          //   userId: userId,
-          //   goalName: pocketNameController.text.trim(),
-          //   targetAmount: double.tryParse(targetAmountController.text) ?? 0,
-          //   savedAmount: 0,
-          //   deadline: DateTime.now(),
-          // );
-
-          // Show success dialog, then navigate to PocketDisplayPage
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (context) {
+            builder: (_) {
               Future.delayed(const Duration(seconds: 2), () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => MyPockets()),
+                  MaterialPageRoute(builder: (_) => MyPockets()),
                 );
               });
-
               return Dialog(
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppResponsive.radiusLg),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: PocketCreatedSuccessfully(),
+                child: Padding(
+                  padding: EdgeInsets.all(AppResponsive.w(20)),
+                  child: const PocketCreatedSuccessfully(),
                 ),
               );
             },
           );
         }
       },
-      builder: (context, state) {
+      builder: (context, goalState) {
         return Scaffold(
+          backgroundColor: Colors.white,
           appBar: pocketAppBar(
             context,
             'My Pocket',
             Image.asset(
               'assets/home/notification.png',
-              height: context.hPx(24),
-              width: context.wPx(24),
+              height: AppResponsive.sp(22),
+              width: AppResponsive.sp(22),
             ),
           ),
-          body: Padding(
-            padding: context.padSymmetricPx(horizontal: 25),
+          body: AppAnimatedPage(
+            direction: SlideDirection.right,
             child: BlocBuilder<PocketIconCubit, PocketIconState>(
               builder: (context, state) {
-                final selectedIndex = state.selectedIndex;
+                final selIdx = state.selectedIndex;
 
                 return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppResponsive.w(25),
+                    vertical: AppResponsive.h(12),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Create new pocket',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Text(
-                        'Set a goal and start saving for something\nmeaningful,',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xff0A0A0A),
-                        ),
-                      ),
-                      context.spaceHPx(20),
-                      Center(
-                        child: PocketSettingCard(
-                          pocketImage: pocketIconsList[selectedIndex].imagePath,
-                          pocketName: pocketNameController.text,
-                          saveAmount: 0,
-                          targetAmount:
-                              double.tryParse(targetAmountController.text) ?? 0,
-                        ),
-                      ),
-                      context.spaceHPx(20),
-                      const Text('Pocket Name', style: TextStyle(fontSize: 16)),
-                      MyTextField(
-                        controller: pocketNameController,
-                        hintText: 'Enter Pocket Name',
-                        obscureText: false,
-                      ),
-                      context.spaceHPx(3),
-                      const Text(
-                        'Enter your target amount',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      MyTextField(
-                        controller: targetAmountController,
-                        hintText: 'Rs. 00',
-                        obscureText: false,
-                      ),
-                      context.spaceHPx(10),
-                      const Text(
-                        'Add an icon to personalize your pocket',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      context.spaceHPx(10),
-                      SizedBox(
-                        height: context.hPx(125),
-                        child: GridView.builder(
-                          itemCount: pocketIconsList.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 6,
-                                mainAxisSpacing: 8,
-                                crossAxisSpacing: 8,
+                      // Header
+                      AppAnimatedItem(
+                        index: 0,
+                        direction: SlideDirection.left,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Create new pocket',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(22),
+                                fontWeight: FontWeight.w600,
                               ),
-                          itemBuilder: (context, index) {
-                            final pocketIcon = pocketIconsList[index];
-                            return PocketIcon(
-                              id: pocketIcon.id,
-                              onClick: () => cubit.selectIcon(index),
-                              imagePath: pocketIcon.imagePath,
-                              selected: state.selectedIndex == index,
-                            );
-                          },
+                            ),
+                            SizedBox(height: AppResponsive.h(4)),
+                            Text(
+                              'Set a goal and start saving for something meaningful.',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(12),
+                                color: const Color(0xff737373),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      context.spaceHPx(15),
-                      Container(
-                        height: context.hPx(80),
-                        width: double.maxFinite,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: const Color(0xffF9FAFB),
-                        ),
-                        child: ListTile(
-                          title: const Text(
-                            'Notify me',
-                            style: TextStyle(fontSize: 16),
+
+                      SizedBox(height: AppResponsive.h(18)),
+
+                      // Preview card
+                      AppAnimatedItem(
+                        index: 1,
+                        direction: SlideDirection.bottom,
+                        child: Center(
+                          child: PocketSettingCard(
+                            pocketImage: pocketIconsList[selIdx].imagePath,
+                            pocketName: _nameCtrl.text,
+                            saveAmount: 0,
+                            targetAmount:
+                                double.tryParse(_targetCtrl.text) ?? 0,
                           ),
-                          subtitle: const Text(
-                            'Get reminded about your goal',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Color(0xff6A7282),
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(18)),
+
+                      AppAnimatedItem(
+                        index: 2,
+                        direction: SlideDirection.left,
+                        child: _FieldLabel('Pocket Name'),
+                      ),
+                      AppAnimatedItem(
+                        index: 2,
+                        direction: SlideDirection.left,
+                        child: MyTextField(
+                          controller: _nameCtrl,
+                          hintText: 'Enter Pocket Name',
+                          obscureText: false,
+                        ),
+                      ),
+
+                      AppAnimatedItem(
+                        index: 3,
+                        direction: SlideDirection.right,
+                        child: _FieldLabel('Enter your target amount'),
+                      ),
+                      AppAnimatedItem(
+                        index: 3,
+                        direction: SlideDirection.right,
+                        child: MyTextField(
+                          controller: _targetCtrl,
+                          hintText: 'Rs. 00',
+                          obscureText: false,
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(10)),
+
+                      AppAnimatedItem(
+                        index: 4,
+                        direction: SlideDirection.left,
+                        child: _FieldLabel(
+                          'Add an icon to personalize your pocket',
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(10)),
+
+                      // Icon grid
+                      AppAnimatedItem(
+                        index: 5,
+                        direction: SlideDirection.bottom,
+                        child: SizedBox(
+                          height: AppResponsive.h(120),
+                          child: GridView.builder(
+                            itemCount: pocketIconsList.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 6,
+                                  mainAxisSpacing: 8,
+                                  crossAxisSpacing: 8,
+                                ),
+                            itemBuilder: (context, i) {
+                              final p = pocketIconsList[i];
+                              return PocketIcon(
+                                id: p.id,
+                                onClick: () => cubit.selectIcon(i),
+                                imagePath: p.imagePath,
+                                selected: selIdx == i,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: AppResponsive.h(14)),
+
+                      // FIX 5: Notify tile — fully dynamic, wired to
+                      // _notifyOnComplete state
+                      AppAnimatedItem(
+                        index: 6,
+                        direction: SlideDirection.bottom,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(
+                              AppResponsive.radiusMd,
+                            ),
+                            color: const Color(0xffF9FAFB),
+                            border: Border.all(color: const Color(0xffE5E7EB)),
+                          ),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: AppResponsive.w(16),
+                              vertical: AppResponsive.h(4),
+                            ),
+                            title: Text(
+                              'Notify when goal is reached',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(14),
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                              ),
+                            ),
+                            subtitle: Text(
+                              _notifyOnComplete
+                                  ? 'You will be notified when your savings are complete.'
+                                  : 'Notifications are turned off for this pocket.',
+                              style: TextStyle(
+                                fontSize: AppResponsive.fs(12),
+                                color: const Color(0xff6A7282),
+                              ),
+                            ),
+                            trailing: CustomSwitch(
+                              width: AppResponsive.w(44),
+                              height: AppResponsive.h(24),
+                              thumbSize: 15.99,
+                              // FIX 5: Pass real state value
+                              value: _notifyOnComplete,
+                              // FIX 5: Toggle and rebuild
+                              onTap: () {
+                                setState(() {
+                                  _notifyOnComplete = !_notifyOnComplete;
+                                });
+                              },
                             ),
                           ),
-                          trailing: CustomSwitch(
-                            width: context.wPx(44),
-                            height: context.hPx(24),
-                            thumbSize: 15.99,
-                            value: true,
-                            onTap: () {},
-                          ),
                         ),
                       ),
-                      context.spaceHPx(12),
-                      Center(
+
+                      SizedBox(height: AppResponsive.h(14)),
+
+                      // Create button
+                      AppAnimatedItem(
+                        index: 7,
+                        direction: SlideDirection.bottom,
                         child: InkWell(
                           onTap: () {
-                            final userId =
-                                FirebaseAuth.instance.currentUser!.uid;
-                            if (pocketNameController.text.isNotEmpty &&
-                                targetAmountController.text.isNotEmpty) {
-                              final goal = Goal(
-                                categoryId: pocketIconsList[selectedIndex].id,
-                                goalId: "", // will be updated by GoalCubit
-                                userId: userId,
-                                goalName: pocketNameController.text.trim(),
-                                targetAmount:
-                                    double.tryParse(
-                                      targetAmountController.text,
-                                    ) ??
-                                    0,
-                                savedAmount: 0,
-                                deadline: DateTime.now(),
+                            final uid = FirebaseAuth.instance.currentUser!.uid;
+                            if (_nameCtrl.text.isNotEmpty &&
+                                _targetCtrl.text.isNotEmpty) {
+                              context.read<GoalCubit>().createGoal(
+                                Goal(
+                                  categoryId: pocketIconsList[selIdx].id,
+                                  goalId: '',
+                                  userId: uid,
+                                  goalName: _nameCtrl.text.trim(),
+                                  targetAmount:
+                                      double.tryParse(_targetCtrl.text) ?? 0,
+                                  savedAmount: 0,
+                                  deadline: DateTime.now(),
+                                  // FIX 5: Persist user's choice
+                                  notifyOnComplete: _notifyOnComplete,
+                                ),
                               );
-                              context.read<GoalCubit>().createGoal(goal);
                             }
                           },
                           child: Container(
-                            height: context.hPx(56),
-                            width: context.wPx(341),
+                            width: double.infinity,
+                            height: AppResponsive.h(54),
                             decoration: BoxDecoration(
                               color: const Color(0xff007AFF),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(
+                                AppResponsive.radiusMd,
+                              ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(Icons.add, color: Color(0xffFFFFFF)),
-                                SizedBox(width: 12),
+                              children: [
+                                const Icon(Icons.add, color: Colors.white),
+                                SizedBox(width: AppResponsive.w(10)),
                                 Text(
                                   'Create Pocket',
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: AppResponsive.fs(15),
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xffFFFFFF),
+                                    color: Colors.white,
                                   ),
                                 ),
                               ],
@@ -251,16 +334,25 @@ class CreatePocketPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+
+                      SizedBox(height: AppResponsive.h(24)),
                     ],
                   ),
                 );
               },
             ),
           ),
-          backgroundColor: const Color(0xffFFFFFF),
         );
       },
     );
   }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(text, style: TextStyle(fontSize: AppResponsive.fs(14)));
 }

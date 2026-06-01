@@ -5,18 +5,17 @@ import 'package:flowpay/features/pocket/presentation/components/pocket_display_c
 import 'package:flowpay/features/pocket/presentation/components/pocket_money_tile.dart';
 import 'package:flowpay/features/pocket/presentation/pages/addmoney_to_pocket.dart';
 import 'package:flowpay/features/pocket/presentation/pages/withdraw_money.dart';
-import 'package:flowpay/helpers/ui_responsive_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../helpers/app_animation.dart';
+import '../../../../helpers/ui_responsive_helper.dart';
 import '../components/pocket_icon.dart';
 import '../cubit/goal_cubit.dart';
 import '../cubit/goal_states.dart';
 
 class PocketDisplayPage extends StatefulWidget {
   final Goal goal;
-
   const PocketDisplayPage({super.key, required this.goal});
-
   @override
   State<PocketDisplayPage> createState() => _PocketDisplayPageState();
 }
@@ -24,6 +23,8 @@ class PocketDisplayPage extends StatefulWidget {
 class _PocketDisplayPageState extends State<PocketDisplayPage> {
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
     return BlocBuilder<GoalCubit, GoalState>(
       builder: (context, state) {
         if (state is GoalLoading) {
@@ -33,165 +34,171 @@ class _PocketDisplayPageState extends State<PocketDisplayPage> {
         }
 
         if (state is GoalLoaded) {
-          /// Find updated goal from state
-          Goal? goalData;
+          Goal? goal;
           try {
-            goalData = state.goals.firstWhere(
+            goal = state.goals.firstWhere(
               (g) => g.goalId == widget.goal.goalId,
             );
           } catch (_) {
-            goalData = null;
+            goal = null;
           }
 
-          /// If pocket deleted
-          if (goalData == null) {
+          if (goal == null) {
             return Scaffold(
               appBar: pocketAppBar(context, 'My Pocket', const SizedBox()),
+              backgroundColor: Colors.white,
               body: Center(
                 child: Text(
                   'Pocket deleted or not found',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: AppResponsive.fs(15),
+                    color: Colors.grey[600],
+                  ),
                 ),
               ),
-              backgroundColor: Colors.white,
             );
           }
 
-          /// Get pocket icon
           final icon = pocketIconsList.firstWhere(
-            (element) => element.id == goalData!.categoryId,
+            (e) => e.id == goal!.categoryId,
             orElse: () => pocketIconsList[0],
           );
-
-          /// Calculate percentage
-          final percentage = ((goalData.savedAmount / goalData.targetAmount) *
-                  100)
-              .clamp(0, 100);
-
-          /// Calculate remaining
-          final remainingAmount = (goalData.targetAmount - goalData.savedAmount)
-              .clamp(0, double.infinity);
-
-          /// Transactions
-          // final transactions = state.transactions;
+          final pct =
+              ((goal.savedAmount / goal.targetAmount) * 100)
+                  .clamp(0, 100)
+                  .toDouble();
+          final rem =
+              (goal.targetAmount - goal.savedAmount)
+                  .clamp(0, double.infinity)
+                  .toDouble();
 
           return Scaffold(
+            backgroundColor: Colors.white,
             appBar: pocketAppBar(
               context,
               'My Pocket',
               InkWell(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    isScrollControlled: true,
-                    builder: (_) => ManagePocketBottomSheet(goal: goalData!),
-                  );
-                },
+                onTap:
+                    () => showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (_) => ManagePocketBottomSheet(goal: goal!),
+                    ),
                 child: const Icon(Icons.more_vert_outlined),
               ),
             ),
-            body: SizedBox(
-              width: double.maxFinite,
+            body: AppAnimatedPage(
+              direction: SlideDirection.bottom,
               child: Padding(
-                padding: context.padSymmetricPx(horizontal: 20),
+                padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(20)),
                 child: Column(
                   children: [
-                    context.spaceHPx(20),
+                    SizedBox(height: AppResponsive.h(18)),
 
-                    /// Pocket Card (UI SAME)
-                    PocketDisplayCard(
-                      pocketImage: icon.imagePath,
-                      pocketName: goalData.goalName,
-                      saveAmount: goalData.savedAmount,
-                      targetAmount: goalData.targetAmount,
-                      percentage: percentage.toDouble(),
-                      remainAmount: remainingAmount.toDouble(),
+                    // ── Pocket card ────────────────────────────────────
+                    AppAnimatedItem(
+                      index: 0,
+                      direction: SlideDirection.bottom,
+                      child: PocketDisplayCard(
+                        pocketImage: icon.imagePath,
+                        pocketName: goal.goalName,
+                        saveAmount: goal.savedAmount,
+                        targetAmount: goal.targetAmount,
+                        percentage: pct,
+                        remainAmount: rem,
+                      ),
                     ),
 
-                    context.spaceHPx(16),
+                    SizedBox(height: AppResponsive.h(16)),
 
-                    /// Add / Withdraw Buttons (UI SAME)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        moneyButton(
-                          context,
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => AddMoneyToPocket(goal: goalData!),
-                              ),
-                            );
-                          },
-                          'Add Money',
-                          'assets/pocket/up.png',
-                          const Color(0xff007AFF),
-                          const Color(0xff007AFF),
-                          const Color(0xffFFFFFF),
-                        ),
-                        context.spaceWPx(10),
-                        moneyButton(
-                          context,
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => WithdrawMoney(
-                                      goal: goalData!,
-                                      pocketImage: icon.imagePath,
+                    // ── Add / Withdraw buttons — Expanded so NEVER overflow
+                    AppAnimatedItem(
+                      index: 1,
+                      direction: SlideDirection.bottom,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _MoneyButton(
+                              label: 'Add Money',
+                              icon: 'assets/pocket/up.png',
+                              bgColor: const Color(0xff007AFF),
+                              textColor: Colors.white,
+                              borderColor: const Color(0xff007AFF),
+                              onTap:
+                                  () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => AddMoneyToPocket(goal: goal!),
                                     ),
-                              ),
-                            );
-                          },
-                          'Withdraw',
-                          'assets/pocket/down.png',
-                          const Color(0xffFFFFFF),
-                          const Color(0xff007AFF),
-                          const Color(0xff007AFF),
-                        ),
-                      ],
+                                  ),
+                            ),
+                          ),
+                          SizedBox(width: AppResponsive.w(10)),
+                          Expanded(
+                            child: _MoneyButton(
+                              label: 'Withdraw',
+                              icon: 'assets/pocket/down.png',
+                              bgColor: Colors.white,
+                              textColor: const Color(0xff007AFF),
+                              borderColor: const Color(0xff007AFF),
+                              onTap:
+                                  () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => WithdrawMoney(
+                                            goal: goal!,
+                                            pocketImage: icon.imagePath,
+                                          ),
+                                    ),
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
-                    context.spaceHPx(24),
+                    SizedBox(height: AppResponsive.h(22)),
 
-                    /// Activity Title
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Activity",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
+                    // ── Activity title ────────────────────────────────
+                    AppAnimatedItem(
+                      index: 2,
+                      direction: SlideDirection.left,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Activity',
+                          style: TextStyle(
+                            fontSize: AppResponsive.fs(17),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
 
-                    context.spaceHPx(10),
+                    SizedBox(height: AppResponsive.h(10)),
 
-                    /// Transactions List
+                    // ── Transaction stream ────────────────────────────
                     Expanded(
                       child: StreamBuilder<List<Map<String, dynamic>>>(
                         stream: context
                             .read<GoalCubit>()
                             .goalTransactionsStream(widget.goal.goalId),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
+                        builder: (context, snap) {
+                          if (!snap.hasData) {
                             return const Center(
                               child: CircularProgressIndicator(),
                             );
                           }
-
-                          final transactions = snapshot.data!;
-                          if (transactions.isEmpty) {
+                          final txns = snap.data!;
+                          if (txns.isEmpty) {
                             return Center(
                               child: Text(
-                                "No transactions yet",
+                                'No transactions yet',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: AppResponsive.fs(13),
                                   color: Colors.grey[500],
                                 ),
                               ),
@@ -199,94 +206,110 @@ class _PocketDisplayPageState extends State<PocketDisplayPage> {
                           }
 
                           return ListView.builder(
-                            itemCount: transactions.length,
-                            itemBuilder: (context, index) {
-                              final txn = transactions[index];
-                              final String txnId =
+                            itemCount: txns.length,
+                            itemBuilder: (context, i) {
+                              final txn = txns[i];
+                              final txnId =
                                   (txn['transactionId'] ?? '').toString();
-                              if (txnId.isEmpty) return const SizedBox();
+                              if (txnId.isEmpty) return const SizedBox.shrink();
+                              final isAdd = txn['type'] == 'goal_saving';
 
-                              final bool isAdd = txn['type'] == 'goal_saving';
-
-                              return Dismissible(
-                                key: Key(txnId),
-                                direction: DismissDirection.endToStart,
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.only(right: 20),
-                                  color: Colors.red,
-                                  child: const Icon(
-                                    Icons.delete,
-                                    color: Colors.white,
-                                    size: 28,
+                              return AppAnimatedItem(
+                                index: i,
+                                direction:
+                                    i.isEven
+                                        ? SlideDirection.left
+                                        : SlideDirection.right,
+                                child: Dismissible(
+                                  key: Key(txnId),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    alignment: Alignment.centerRight,
+                                    padding: EdgeInsets.only(
+                                      right: AppResponsive.w(20),
+                                    ),
+                                    color: Colors.red,
+                                    child: Icon(
+                                      Icons.delete,
+                                      color: Colors.white,
+                                      size: AppResponsive.sp(26),
+                                    ),
                                   ),
-                                ),
-                                confirmDismiss: (direction) async {
-                                  return await showDialog(
-                                    context: context,
-                                    builder:
-                                        (_) => AlertDialog(
-                                          title: const Text(
-                                            "Delete Transaction",
-                                          ),
-                                          content: const Text(
-                                            "Are you sure you want to delete this transaction?",
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed:
-                                                  () => Navigator.of(
-                                                    context,
-                                                  ).pop(false),
-                                              child: const Text("Cancel"),
+                                  confirmDismiss:
+                                      (_) async => await showDialog(
+                                        context: context,
+                                        builder:
+                                            (_) => AlertDialog(
+                                              title: Text(
+                                                'Delete Transaction',
+                                                style: TextStyle(
+                                                  fontSize: AppResponsive.fs(
+                                                    15,
+                                                  ),
+                                                ),
+                                              ),
+                                              content: Text(
+                                                'Are you sure you want to delete this transaction?',
+                                                style: TextStyle(
+                                                  fontSize: AppResponsive.fs(
+                                                    13,
+                                                  ),
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.of(
+                                                        context,
+                                                      ).pop(false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.of(
+                                                        context,
+                                                      ).pop(true),
+                                                  child: const Text('Delete'),
+                                                ),
+                                              ],
                                             ),
-                                            TextButton(
-                                              onPressed:
-                                                  () => Navigator.of(
-                                                    context,
-                                                  ).pop(true),
-                                              child: const Text("Delete"),
-                                            ),
-                                          ],
-                                        ),
-                                  );
-                                },
-                                onDismissed: (direction) {
-                                  context
-                                      .read<GoalCubit>()
-                                      .deleteGoalTransaction(
-                                        widget.goal.goalId,
-                                        txnId,
-                                      );
-                                },
-                                child: PocketMoneyTile(
-                                  iconContainerColor:
-                                      isAdd
-                                          ? const Color(0xffE7F0FF)
-                                          : const Color(0xffFBE9E7),
-                                  icon:
-                                      isAdd
-                                          ? 'assets/pocket/up.png'
-                                          : 'assets/pocket/down.png',
-                                  iconColor:
-                                      isAdd
-                                          ? const Color(0xff007AFF)
-                                          : const Color(0xffD92D20),
-                                  titleText:
-                                      isAdd ? 'Add money' : 'Withdraw money',
-                                  date: txn['dateTime'].toString().substring(
-                                    0,
-                                    10,
+                                      ),
+                                  onDismissed:
+                                      (_) => context
+                                          .read<GoalCubit>()
+                                          .deleteGoalTransaction(
+                                            widget.goal.goalId,
+                                            txnId,
+                                          ),
+                                  child: PocketMoneyTile(
+                                    iconContainerColor:
+                                        isAdd
+                                            ? const Color(0xffE7F0FF)
+                                            : const Color(0xffFBE9E7),
+                                    icon:
+                                        isAdd
+                                            ? 'assets/pocket/up.png'
+                                            : 'assets/pocket/down.png',
+                                    iconColor:
+                                        isAdd
+                                            ? const Color(0xff007AFF)
+                                            : const Color(0xffD92D20),
+                                    titleText:
+                                        isAdd ? 'Add money' : 'Withdraw money',
+                                    date: txn['dateTime'].toString().substring(
+                                      0,
+                                      10,
+                                    ),
+                                    amount: (txn['amount'] as num).toDouble(),
+                                    textColor:
+                                        isAdd
+                                            ? const Color(0xff007AFF)
+                                            : const Color(0xffD92D20),
+                                    currenyColor:
+                                        isAdd
+                                            ? const Color(0xff007AFF)
+                                            : const Color(0xffD92D20),
                                   ),
-                                  amount: (txn['amount'] as num).toDouble(),
-                                  textColor:
-                                      isAdd
-                                          ? const Color(0xff007AFF)
-                                          : const Color(0xffD92D20),
-                                  currenyColor:
-                                      isAdd
-                                          ? const Color(0xff007AFF)
-                                          : const Color(0xffD92D20),
                                 ),
                               );
                             },
@@ -298,231 +321,65 @@ class _PocketDisplayPageState extends State<PocketDisplayPage> {
                 ),
               ),
             ),
-            backgroundColor: const Color(0xffFFFFFF),
           );
         }
 
-        if (state is GoalError) {
+        if (state is GoalError)
           return Scaffold(body: Center(child: Text(state.message)));
-        }
-
-        return const SizedBox();
+        return const SizedBox.shrink();
       },
-    );
-  }
-
-  /// Money Button (UNCHANGED)
-  Widget moneyButton(
-    BuildContext context,
-    VoidCallback onTap,
-    String buttonName,
-    String buttonIcon,
-    Color buttonColor,
-    Color btnBorderColor,
-    Color btnTextColor,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: context.padSymmetricPx(horizontal: 18),
-        height: context.hPx(56),
-        width: context.wPx(180),
-        decoration: BoxDecoration(
-          color: buttonColor,
-          border: Border.all(color: btnBorderColor),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            Text(
-              buttonName,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: btnTextColor,
-              ),
-            ),
-            Image.asset(
-              buttonIcon,
-              height: context.hPx(24),
-              width: context.wPx(24),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
 
-// class PocketDisplayPage extends StatelessWidget {
-//   final String? pocketImage;
-//   final String? pocketName;
-//   final double? targetAmount;
+// Reusable money button — width:double.infinity so Expanded controls it
+class _MoneyButton extends StatelessWidget {
+  final String label, icon;
+  final Color bgColor, textColor, borderColor;
+  final VoidCallback onTap;
+  const _MoneyButton({
+    required this.label,
+    required this.icon,
+    required this.bgColor,
+    required this.textColor,
+    required this.borderColor,
+    required this.onTap,
+  });
 
-//   const PocketDisplayPage({
-//     super.key,
-//     this.pocketImage,
-//     this.pocketName,
-//     this.targetAmount,
-//   });
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: pocketAppBar(
-//         context,
-//         'My Pocket',
-//         InkWell(
-//           onTap: () {
-//             showModalBottomSheet(
-//               context: context,
-//               backgroundColor: Colors.transparent,
-//               isScrollControlled: true,
-//               builder:
-//                   (context) => ManagePocketBottomSheet(
-//                     pocketImage: pocketImage ?? "",
-//                     pocketName: pocketName ?? "",
-//                     targetAmount: targetAmount ?? 0,
-//                   ),
-//             );
-//           },
-//           child: const Icon(Icons.more_vert_outlined),
-//         ),
-//       ),
-//       body: SizedBox(
-//         width: double.maxFinite,
-//         child: Padding(
-//           padding: context.padSymmetricPx(horizontal: 10),
-//           child: Column(
-//             children: [
-//               context.spaceHPx(20),
-//               PocketDisplayCard(
-//                 pocketImage: pocketImage ?? "",
-//                 pocketName: pocketName ?? "",
-//                 saveAmount: 0,
-//                 targetAmount: targetAmount ?? 0,
-//                 percentage: 0,
-//                 remainAmount: 0,
-//               ),
-//               context.spaceHPx(16),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   moneyButton(
-//                     context,
-//                     () {
-//                       Navigator.push(
-//                         context,
-//                         MaterialPageRoute(
-//                           builder: (context) => AddMoneyToPocket(goal: goal),
-//                         ),
-//                       );
-//                     },
-//                     'Add Money',
-//                     'assets/pocket/up.png',
-//                     const Color(0xff007AFF),
-//                     const Color(0xff007AFF),
-//                     const Color(0xffFFFFFF),
-//                   ),
-//                   context.spaceWPx(10),
-//                   moneyButton(
-//                     context,
-//                     () {
-//                       Navigator.push(
-//                         context,
-//                         MaterialPageRoute(
-//                           builder: (context) => WithdrawMoney(),
-//                         ),
-//                       );
-//                     },
-//                     'Withdraw',
-//                     'assets/pocket/down.png',
-//                     const Color(0xffFFFFFF),
-//                     const Color(0xff007AFF),
-//                     const Color(0xff007AFF),
-//                   ),
-//                 ],
-//               ),
-//               context.spaceHPx(10),
-//               Align(
-//                 alignment: Alignment.centerLeft,
-//                 child: const Text(
-//                   'Activity',
-//                   style: TextStyle(fontSize: 16, color: Color(0xff101828)),
-//                 ),
-//               ),
-//               context.spaceHPx(10),
-//               InkWell(
-//                 onTap: () {},
-//                 child: PocketMoneyTile(
-//                   iconContainerColor: const Color(0xffE8EDFF),
-//                   icon: 'assets/pocket/up.png',
-//                   iconColor: const Color(0xff007AFF),
-//                   titleText: 'Add Money',
-//                   date: '11/16/2025',
-//                   amount: 1000,
-//                   textColor: const Color(0xff007AFF),
-//                   currenyColor: const Color(0xff007AFF),
-//                 ),
-//               ),
-//               PocketMoneyTile(
-//                 iconContainerColor: const Color(0xffFFEDD4),
-//                 icon: 'assets/pocket/down.png',
-//                 iconColor: const Color(0xffCA3500),
-//                 titleText: 'Withdraw Money',
-//                 date: '11/16/2025',
-//                 amount: 500,
-//                 textColor: const Color(0xffCA3500),
-//                 currenyColor: const Color(0xffCA3500),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//       backgroundColor: const Color(0xffFFFFFF),
-//     );
-//   }
-
-//   Widget moneyButton(
-//     BuildContext context,
-//     VoidCallback onTap,
-//     String buttonName,
-//     String buttonIcon,
-//     Color buttonColor,
-//     Color btnBorderColor,
-//     Color btnTextColor,
-//   ) {
-//     return InkWell(
-//       onTap: onTap,
-//       child: Container(
-//         padding: context.padSymmetricPx(horizontal: 18),
-//         height: context.hPx(56),
-//         width: context.wPx(180),
-//         decoration: BoxDecoration(
-//           color: buttonColor,
-//           border: Border.all(color: btnBorderColor),
-//           borderRadius: BorderRadius.circular(16),
-//         ),
-//         child: Row(
-//           mainAxisAlignment: MainAxisAlignment.spaceAround,
-//           children: [
-//             Text(
-//               buttonName,
-//               style: TextStyle(
-//                 fontSize: 16,
-//                 fontWeight: FontWeight.w500,
-//                 color: btnTextColor,
-//               ),
-//             ),
-//             Image.asset(
-//               buttonIcon,
-//               height: context.hPx(24),
-//               width: context.wPx(24),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+    child: Container(
+      width: double.infinity,
+      height: AppResponsive.h(52),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: AppResponsive.fs(14),
+                fontWeight: FontWeight.w500,
+                color: textColor,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(width: AppResponsive.w(8)),
+          Image.asset(
+            icon,
+            height: AppResponsive.sp(18),
+            width: AppResponsive.sp(18),
+          ),
+        ],
+      ),
+    ),
+  );
+}

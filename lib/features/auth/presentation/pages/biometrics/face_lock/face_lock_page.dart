@@ -1,5 +1,3 @@
-// features/auth/presentation/pages/biometrics/face_lock/face_lock_page.dart
-
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flowpay/features/auth/presentation/cubit/auth_cubit.dart';
@@ -7,213 +5,246 @@ import 'package:flowpay/features/auth/presentation/cubit/auth_state.dart';
 import 'package:flowpay/navigations/navigation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../../../helpers/ui_responsive_helper.dart';
 
 enum FaceLockMode { register, login, transaction }
 
 class FaceLockPage extends StatefulWidget {
   final FaceLockMode mode;
   final String? uid;
-
   const FaceLockPage({super.key, required this.mode, this.uid});
-
   @override
   State<FaceLockPage> createState() => _FaceLockPageState();
 }
 
 class _FaceLockPageState extends State<FaceLockPage>
     with WidgetsBindingObserver, TickerProviderStateMixin {
-  CameraController? _cameraController;
-  bool _isCameraReady = false;
-  bool _isProcessing = false;
+  CameraController? _cam;
+  bool _camReady = false;
+  bool _processing = false;
   bool _captured = false;
 
-  // ── Real-time progress simulation ──
   double _progress = 0.0;
-  String _statusText = 'Hold your face';
-  Timer? _progressTimer;
-  late AnimationController _scanLineController;
+  String _status = 'Hold your face still';
+  bool _showRetry = false;
+  Timer? _timer;
+
+  late AnimationController _scanCtrl;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // Scan line animation
-    _scanLineController = AnimationController(
+    _scanCtrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-
     _initCamera();
   }
 
-  // ─────────────────────────────────────────────
-  // CAMERA INIT
-  // ─────────────────────────────────────────────
   Future<void> _initCamera() async {
     try {
-      final cameras = await availableCameras();
-      final front = cameras.firstWhere(
+      final cams = await availableCameras();
+      final front = cams.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
+        orElse: () => cams.first,
       );
-
-      _cameraController = CameraController(
+      _cam = CameraController(
         front,
         ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
-
-      await _cameraController!.initialize();
-
+      await _cam!.initialize();
       if (mounted) {
-        setState(() => _isCameraReady = true);
-        // Auto start scanning after camera is ready
-        _startAutoCapture();
+        setState(() => _camReady = true);
+        _startCapture();
       }
-    } catch (e) {
-      if (mounted) setState(() => _statusText = 'Camera error: $e');
+    } catch (_) {
+      if (mounted) setState(() => _status = 'Camera error');
     }
   }
 
-  // ─────────────────────────────────────────────
-  // AUTO CAPTURE — starts progress then captures
-  // ─────────────────────────────────────────────
-  void _startAutoCapture() {
-    if (_isProcessing || _captured) return;
-
+  void _startCapture() {
+    if (_processing || _captured) return;
     setState(() {
       _progress = 0.0;
-      _statusText = 'Hold your face';
+      _status = 'Hold your face still';
+      _showRetry = false;
     });
-
-    // Simulate real scanning progress over 3 seconds
-    // then auto capture at 100%
     int tick = 0;
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 60), (timer) {
+    _timer = Timer.periodic(const Duration(milliseconds: 60), (t) {
       tick++;
-      final newProgress = (tick * 0.60) / 100; // reaches 1.0 in ~100 ticks = 3s
-
-      if (newProgress >= 0.3 && newProgress < 0.6) {
-        setState(() => _statusText = 'Recognizing your face...');
-      } else if (newProgress >= 0.6 && newProgress < 1.0) {
-        setState(() => _statusText = 'Almost done...');
+      final p = (tick * 0.60) / 100;
+      if (p >= 0.3 && p < 0.6) {
+        setState(() => _status = 'Scanning face...');
+      } else if (p >= 0.6 && p < 1.0) {
+        setState(() => _status = 'Almost done...');
       }
-
-      if (newProgress >= 1.0) {
-        timer.cancel();
+      if (p >= 1.0) {
+        t.cancel();
         setState(() {
           _progress = 1.0;
-          _statusText = 'Face captured!';
+          _status = 'Sending to server...';
         });
-        // Auto capture at 100%
         _captureAndProcess();
       } else {
-        setState(() => _progress = newProgress);
+        setState(() => _progress = p);
       }
     });
   }
 
-  // ─────────────────────────────────────────────
-  // CAPTURE + SEND TO CUBIT
-  // ─────────────────────────────────────────────
   Future<void> _captureAndProcess() async {
-    if (_cameraController == null ||
-        !_cameraController!.value.isInitialized ||
-        _isProcessing ||
-        _captured)
+    if (_cam == null ||
+        !_cam!.value.isInitialized ||
+        _processing ||
+        _captured) {
       return;
-
+    }
     setState(() {
-      _isProcessing = true;
+      _processing = true;
       _captured = true;
     });
-
     try {
-      final XFile image = await _cameraController!.takePicture();
+      final img = await _cam!.takePicture();
       final cubit = context.read<AuthCubit>();
-
       switch (widget.mode) {
         case FaceLockMode.register:
-          await cubit.registerFaceEmbedding(image);
+          await cubit.registerFaceEmbedding(img);
           break;
         case FaceLockMode.login:
           if (widget.uid == null) {
-            _resetState('User ID missing. Login with password first.');
+            _serverError('User ID missing.');
             return;
           }
-          await cubit.loginWithFace(uid: widget.uid!, capturedImage: image);
+          await cubit.loginWithFace(uid: widget.uid!, capturedImage: img);
           break;
         case FaceLockMode.transaction:
           if (widget.uid == null) {
-            _resetState('User ID missing.');
+            _serverError('User ID missing.');
             return;
           }
           await cubit.verifyFaceForTransaction(
             uid: widget.uid!,
-            capturedImage: image,
+            capturedImage: img,
           );
           break;
       }
-    } catch (e) {
-      _resetState('Something went wrong. Try again.');
+    } catch (_) {
+      _serverError('Something went wrong');
     }
   }
 
-  void _resetState(String message) {
-    if (mounted) {
-      setState(() {
-        _statusText = message;
-        _isProcessing = false;
-        _captured = false;
-        _progress = 0.0;
-      });
-      // Restart auto capture after short delay
-      Future.delayed(const Duration(seconds: 2), _startAutoCapture);
-    }
+  void _reset(String msg) {
+    if (!mounted) return;
+    setState(() {
+      _status = msg;
+      _processing = false;
+      _captured = false;
+      _progress = 0.0;
+      _showRetry = false;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _startCapture();
+    });
   }
 
-  // ─────────────────────────────────────────────
-  // STATE LISTENER
-  // ─────────────────────────────────────────────
-  void _handleStateChanges(BuildContext context, AuthStates state) {
+  void _serverError(String msg) {
+    if (!mounted) return;
+    setState(() {
+      _status = msg;
+      _processing = false;
+      _captured = false;
+      _progress = 0.0;
+      _showRetry = true;
+    });
+  }
+
+  String _friendly(String raw) {
+    if (raw.contains('server') ||
+        raw.contains('unavailable') ||
+        raw.contains('HF') ||
+        raw.contains('500')) {
+      return 'Server unavailable';
+    }
+    if (raw.contains('internet') || raw.contains('connection')) {
+      return 'Check your internet';
+    }
+    if (raw.contains('No face') || raw.contains('detected')) {
+      return 'No face detected';
+    }
+    if (raw.contains('lighting')) return 'Try better lighting';
+    if (raw.contains('registered')) return 'No face registered';
+    return raw.length > 30 ? '${raw.substring(0, 30)}...' : raw;
+  }
+
+  bool _isServerErr(String r) =>
+      r.contains('server') ||
+      r.contains('unavailable') ||
+      r.contains('HF') ||
+      r.contains('500') ||
+      r.contains('face embedding');
+
+  void _handleState(BuildContext ctx, AuthStates state) {
     if (state is FaceRegistrationSuccess) {
-      setState(() => _statusText = 'Face registered successfully!');
+      setState(() {
+        _status = 'Face registered!';
+        _showRetry = false;
+      });
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
           Navigator.pushAndRemoveUntil(
-            context,
+            ctx,
             MaterialPageRoute(builder: (_) => const NavigationPage()),
-            (route) => false,
+            (r) => false,
           );
         }
       });
     }
-
     if (state is FaceRegistrationError) {
-      _resetState(state.message);
+      _isServerErr(state.message)
+          ? _serverError('Server unavailable')
+          : _reset(_friendly(state.message));
     }
-
     if (state is FaceVerificationSuccess) {
-      setState(() => _statusText = 'Identity verified!');
+      setState(() {
+        _status = 'Identity verified!';
+        _showRetry = false;
+      });
       if (widget.mode == FaceLockMode.transaction) {
         Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) Navigator.pop(context, true);
+          if (mounted) Navigator.pop(ctx, true);
         });
       }
     }
-
-    if (state is FaceVerificationFailed) {
-      _resetState('Face not recognized. Scanning again...');
-    }
-
+    if (state is FaceVerificationFailed) _reset('Face not recognized');
     if (state is FaceVerificationError) {
-      _resetState(state.message);
+      _isServerErr(state.message)
+          ? _serverError('Server unavailable')
+          : _reset(_friendly(state.message));
     }
   }
 
-  String get _pageTitle {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (_cam == null) return;
+    if (s == AppLifecycleState.inactive) {
+      _timer?.cancel();
+      _cam!.dispose();
+    } else if (s == AppLifecycleState.resumed)
+      _initCamera();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _scanCtrl.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _cam?.dispose();
+    super.dispose();
+  }
+
+  String get _title {
     switch (widget.mode) {
       case FaceLockMode.register:
         return 'Face Recognition';
@@ -224,7 +255,6 @@ class _FaceLockPageState extends State<FaceLockPage>
     }
   }
 
-  // Border color based on progress
   Color get _borderColor {
     if (_progress < 0.5) return Colors.blueAccent;
     if (_progress < 1.0) return Colors.lightBlueAccent;
@@ -232,33 +262,12 @@ class _FaceLockPageState extends State<FaceLockPage>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_cameraController == null) return;
-    if (state == AppLifecycleState.inactive) {
-      _progressTimer?.cancel();
-      _cameraController!.dispose();
-    } else if (state == AppLifecycleState.resumed) {
-      _initCamera();
-    }
-  }
-
-  @override
-  void dispose() {
-    _progressTimer?.cancel();
-    _scanLineController.dispose();
-    WidgetsBinding.instance.removeObserver(this);
-    _cameraController?.dispose();
-    super.dispose();
-  }
-
-  // ─────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────
-  @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+
     return BlocConsumer<AuthCubit, AuthStates>(
-      listener: _handleStateChanges,
-      builder: (context, state) {
+      listener: _handleState,
+      builder: (ctx, state) {
         final isSuccess =
             state is FaceRegistrationSuccess ||
             state is FaceVerificationSuccess;
@@ -271,22 +280,22 @@ class _FaceLockPageState extends State<FaceLockPage>
           body: Stack(
             fit: StackFit.expand,
             children: [
-              // ── 1. Full screen camera ──
-              if (_isCameraReady && _cameraController != null)
+              // ── Camera preview ─────────────────────────────────────────
+              if (_camReady && _cam != null)
                 SizedBox.expand(
                   child: FittedBox(
                     fit: BoxFit.cover,
                     child: SizedBox(
-                      width: _cameraController!.value.previewSize!.height,
-                      height: _cameraController!.value.previewSize!.width,
-                      child: CameraPreview(_cameraController!),
+                      width: _cam!.value.previewSize!.height,
+                      height: _cam!.value.previewSize!.width,
+                      child: CameraPreview(_cam!),
                     ),
                   ),
                 )
               else
                 Container(color: Colors.black),
 
-              // ── 2. Dark vignette overlay on sides ──
+              // ── Side vignette ──────────────────────────────────────────
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -303,11 +312,11 @@ class _FaceLockPageState extends State<FaceLockPage>
                 ),
               ),
 
-              // ── 3. Top + bottom dark overlay ──
+              // ── Top + bottom fade ──────────────────────────────────────
               Column(
                 children: [
                   Container(
-                    height: MediaQuery.of(context).size.height * 0.15,
+                    height: AppResponsive.hp(15),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
@@ -318,7 +327,7 @@ class _FaceLockPageState extends State<FaceLockPage>
                   ),
                   const Spacer(),
                   Container(
-                    height: MediaQuery.of(context).size.height * 0.30,
+                    height: AppResponsive.hp(30),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
@@ -330,41 +339,29 @@ class _FaceLockPageState extends State<FaceLockPage>
                 ],
               ),
 
-              // ── 4. All UI on top ──
+              // ── UI layer ───────────────────────────────────────────────
               SafeArea(
                 child: Column(
                   children: [
-                    const SizedBox(height: 15),
-
-                    // Top bar
-                    _buildTopBar(context),
-
-                    const SizedBox(height: 8),
-
+                    SizedBox(height: AppResponsive.h(14)),
+                    _topBar(ctx),
+                    SizedBox(height: AppResponsive.h(8)),
                     Text(
-                      'Please into the camera and hold still',
+                      'Look into the camera and hold still',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
-                        fontSize: 13,
+                        fontSize: AppResponsive.fs(12),
                       ),
                     ),
-
                     const Spacer(),
-
-                    // ── Scan border frame ──
-                    _buildScanFrame(isSuccess),
-
+                    _scanFrame(isSuccess),
                     const Spacer(),
-
-                    // ── Status pill ──
-                    _buildStatusPill(isApiLoading),
-
-                    const SizedBox(height: 20),
-
-                    // ── Circular progress ──
-                    _buildCircularProgress(isSuccess, isApiLoading),
-
-                    const SizedBox(height: 40),
+                    _statusPill(isApiLoading),
+                    SizedBox(height: AppResponsive.h(14)),
+                    if (_showRetry && !isApiLoading) _errorBanner(),
+                    SizedBox(height: AppResponsive.h(14)),
+                    _circularProgress(isSuccess, isApiLoading),
+                    SizedBox(height: AppResponsive.h(36)),
                   ],
                 ),
               ),
@@ -375,128 +372,117 @@ class _FaceLockPageState extends State<FaceLockPage>
     );
   }
 
-  // ─────────────────────────────────────────────
-  // TOP BAR
-  // ─────────────────────────────────────────────
-  Widget _buildTopBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              height: 34,
-              width: 34,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                size: 14,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Text(
-            _pageTitle,
-            style: const TextStyle(
+  Widget _topBar(BuildContext ctx) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(20)),
+    child: Row(
+      children: [
+        GestureDetector(
+          onTap: () => Navigator.pop(ctx),
+          child: Container(
+            height: AppResponsive.sp(34),
+            width: AppResponsive.sp(34),
+            decoration: const BoxDecoration(
               color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.arrow_back_ios_new,
+              size: AppResponsive.sp(13),
+              color: Colors.black,
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        SizedBox(width: AppResponsive.w(16)),
+        Text(
+          _title,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: AppResponsive.fs(20),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  );
 
-  // ─────────────────────────────────────────────
-  // SCAN FRAME — corner brackets like your design
-  // ─────────────────────────────────────────────
-  Widget _buildScanFrame(bool isSuccess) {
+  Widget _scanFrame(bool isSuccess) {
+    // Responsive frame — 72% of width, max 400 wide; height proportional
+    final fw = (AppResponsive.screenWidth * 0.72).clamp(220.0, 340.0);
+    final fh = (AppResponsive.screenHeight * 0.40).clamp(260.0, 420.0);
     final color = isSuccess ? Colors.greenAccent : _borderColor;
-    final size = MediaQuery.of(context).size;
-    final frameW = size.width * 0.72;
-    final frameH = size.height * 0.42;
 
     return SizedBox(
-      width: frameW,
-      height: frameH,
+      width: fw,
+      height: fh,
       child: Stack(
         children: [
-          // Animated scan line
           if (!isSuccess)
             AnimatedBuilder(
-              animation: _scanLineController,
-              builder: (context, _) {
-                return Positioned(
-                  top: _scanLineController.value * (frameH - 2),
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.blueAccent.withOpacity(0.8),
-                          Colors.transparent,
-                        ],
+              animation: _scanCtrl,
+              builder:
+                  (_, __) => Positioned(
+                    top: _scanCtrl.value * (fh - 2),
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.blueAccent.withOpacity(0.8),
+                            Colors.transparent,
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                );
-              },
             ),
-
-          // Corner brackets
-          ..._buildCornerBrackets(frameW, frameH, color),
-
-          // Success icon in center
+          ..._corners(fw, fh, color),
           if (isSuccess)
-            Center(
+            const Center(
               child: Icon(
                 Icons.check_circle_outline,
                 color: Colors.greenAccent,
                 size: 70,
               ),
             ),
+          if (_showRetry && !isSuccess)
+            Center(
+              child: Icon(
+                Icons.cloud_off,
+                color: Colors.redAccent.withOpacity(0.7),
+                size: AppResponsive.sp(44),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  List<Widget> _buildCornerBrackets(double w, double h, Color color) {
-    const len = 28.0;
-    const thick = 3.0;
-
+  List<Widget> _corners(double w, double h, Color c) {
+    const l = 28.0;
+    const t = 3.0;
     return [
-      // Top-left
       Positioned(
         top: 0,
         left: 0,
-        child: _bracket(len, thick, color, top: true, left: true),
+        child: _bracket(l, t, c, top: true, left: true),
       ),
-      // Top-right
       Positioned(
         top: 0,
         right: 0,
-        child: _bracket(len, thick, color, top: true, left: false),
+        child: _bracket(l, t, c, top: true, left: false),
       ),
-      // Bottom-left
       Positioned(
         bottom: 0,
         left: 0,
-        child: _bracket(len, thick, color, top: false, left: true),
+        child: _bracket(l, t, c, top: false, left: true),
       ),
-      // Bottom-right
       Positioned(
         bottom: 0,
         right: 0,
-        child: _bracket(len, thick, color, top: false, left: false),
+        child: _bracket(l, t, c, top: false, left: false),
       ),
     ];
   }
@@ -507,98 +493,179 @@ class _FaceLockPageState extends State<FaceLockPage>
     Color color, {
     required bool top,
     required bool left,
-  }) {
-    return SizedBox(
-      width: len,
-      height: len,
-      child: CustomPaint(
-        painter: _BracketPainter(
-          color: color,
-          thickness: thick,
-          top: top,
-          left: left,
-        ),
+  }) => SizedBox(
+    width: len,
+    height: len,
+    child: CustomPaint(
+      painter: _BracketPainter(
+        color: color,
+        thickness: thick,
+        top: top,
+        left: left,
       ),
-    );
-  }
+    ),
+  );
 
-  // ─────────────────────────────────────────────
-  // STATUS PILL
-  // ─────────────────────────────────────────────
-  Widget _buildStatusPill(bool isApiLoading) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white24),
+  Widget _statusPill(bool apiLoading) => Container(
+    constraints: BoxConstraints(maxWidth: AppResponsive.wp(85)),
+    padding: EdgeInsets.symmetric(
+      horizontal: AppResponsive.w(18),
+      vertical: AppResponsive.h(7),
+    ),
+    decoration: BoxDecoration(
+      color: Colors.black.withOpacity(0.55),
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(
+        color: _showRetry ? Colors.redAccent.withOpacity(0.5) : Colors.white24,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isApiLoading) ...[
-            const SizedBox(
-              height: 12,
-              width: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.blueAccent,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            isApiLoading ? 'Processing...' : _statusText,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (apiLoading) ...[
+          SizedBox(
+            width: AppResponsive.sp(12),
+            height: AppResponsive.sp(12),
+            child: const CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.blueAccent,
             ),
           ),
+          SizedBox(width: AppResponsive.w(8)),
+        ] else if (_showRetry) ...[
+          Icon(
+            Icons.error_outline,
+            color: Colors.redAccent,
+            size: AppResponsive.sp(13),
+          ),
+          SizedBox(width: AppResponsive.w(6)),
         ],
-      ),
-    );
-  }
+        Flexible(
+          child: Text(
+            apiLoading ? 'Processing...' : _status,
+            style: TextStyle(
+              color: _showRetry ? Colors.redAccent : Colors.white,
+              fontSize: AppResponsive.fs(12),
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    ),
+  );
 
-  // ─────────────────────────────────────────────
-  // CIRCULAR PROGRESS — exactly like your design
-  // ─────────────────────────────────────────────
-  Widget _buildCircularProgress(bool isSuccess, bool isApiLoading) {
+  Widget _errorBanner() => Container(
+    margin: EdgeInsets.symmetric(horizontal: AppResponsive.w(24)),
+    padding: EdgeInsets.symmetric(
+      horizontal: AppResponsive.w(14),
+      vertical: AppResponsive.h(12),
+    ),
+    decoration: BoxDecoration(
+      color: Colors.red.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(AppResponsive.radiusMd),
+      border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+    ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.cloud_off,
+              color: Colors.redAccent,
+              size: AppResponsive.sp(15),
+            ),
+            SizedBox(width: AppResponsive.w(8)),
+            Flexible(
+              child: Text(
+                'Face server is unavailable.\nAsk your friend to restart the HF Space.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: AppResponsive.fs(11),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppResponsive.h(10)),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: _startCapture,
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppResponsive.radiusSm),
+              ),
+              padding: EdgeInsets.symmetric(vertical: AppResponsive.h(10)),
+            ),
+            child: Text(
+              'Retry',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: AppResponsive.fs(13),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _circularProgress(bool isSuccess, bool apiLoading) {
+    final sz = AppResponsive.sp(80).clamp(64.0, 100.0);
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Outer glow ring
         Container(
-          width: 90,
-          height: 90,
+          width: sz + 10,
+          height: sz + 10,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.blue.withOpacity(0.15),
+            color:
+                _showRetry
+                    ? Colors.red.withOpacity(0.1)
+                    : Colors.blue.withOpacity(0.15),
           ),
         ),
-        // Progress ring
         SizedBox(
-          width: 75,
-          height: 75,
+          width: sz,
+          height: sz,
           child: CircularProgressIndicator(
-            value: isApiLoading ? null : _progress,
+            value: apiLoading ? null : _progress,
             strokeWidth: 5,
             backgroundColor: Colors.white12,
             valueColor: AlwaysStoppedAnimation<Color>(
-              isSuccess ? Colors.greenAccent : Colors.blueAccent,
+              isSuccess
+                  ? Colors.greenAccent
+                  : _showRetry
+                  ? Colors.redAccent
+                  : Colors.blueAccent,
             ),
           ),
         ),
-        // Percentage text
         Text(
-          isApiLoading
+          apiLoading
               ? '...'
               : isSuccess
               ? '✓'
+              : _showRetry
+              ? '!'
               : '${(_progress * 100).toInt()}%',
           style: TextStyle(
-            color: isSuccess ? Colors.greenAccent : Colors.white,
-            fontSize: isSuccess ? 22 : 16,
+            color:
+                isSuccess
+                    ? Colors.greenAccent
+                    : _showRetry
+                    ? Colors.redAccent
+                    : Colors.white,
+            fontSize:
+                isSuccess || _showRetry
+                    ? AppResponsive.fs(20)
+                    : AppResponsive.fs(15),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -607,15 +674,11 @@ class _FaceLockPageState extends State<FaceLockPage>
   }
 }
 
-// ─────────────────────────────────────────────
-// CUSTOM PAINTER — corner brackets
-// ─────────────────────────────────────────────
+// ─── Bracket painter (unchanged) ─────────────────────────────────────────────
 class _BracketPainter extends CustomPainter {
   final Color color;
   final double thickness;
-  final bool top;
-  final bool left;
-
+  final bool top, left;
   _BracketPainter({
     required this.color,
     required this.thickness,
@@ -625,26 +688,21 @@ class _BracketPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint =
+    final p =
         Paint()
           ..color = color
           ..strokeWidth = thickness
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round;
-
-    final double len = size.width;
-    final double x = left ? 0 : size.width;
-    final double y = top ? 0 : size.height;
-    final double dx = left ? len : -len;
-    final double dy = top ? len : -len;
-
-    // Horizontal line
-    canvas.drawLine(Offset(x, y), Offset(x + dx, y), paint);
-    // Vertical line
-    canvas.drawLine(Offset(x, y), Offset(x, y + dy), paint);
+    final x = left ? 0.0 : size.width;
+    final y = top ? 0.0 : size.height;
+    final dx = left ? size.width : -size.width;
+    final dy = top ? size.height : -size.height;
+    canvas.drawLine(Offset(x, y), Offset(x + dx, y), p);
+    canvas.drawLine(Offset(x, y), Offset(x, y + dy), p);
   }
 
   @override
-  bool shouldRepaint(_BracketPainter old) =>
-      old.color != color || old.thickness != thickness;
+  bool shouldRepaint(_BracketPainter o) =>
+      o.color != color || o.thickness != thickness;
 }
