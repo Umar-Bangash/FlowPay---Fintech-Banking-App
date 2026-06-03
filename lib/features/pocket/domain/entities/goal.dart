@@ -8,7 +8,7 @@ class Goal {
   final double savedAmount;
   final DateTime deadline;
   final String categoryId;
-  final bool notifyOnComplete; // ← NEW: persisted to Firestore
+  final bool notifyOnComplete;
 
   Goal({
     required this.goalId,
@@ -18,7 +18,7 @@ class Goal {
     required this.savedAmount,
     required this.deadline,
     required this.categoryId,
-    this.notifyOnComplete = true, // default ON
+    this.notifyOnComplete = true,
   });
 
   Goal copyWith({

@@ -33,7 +33,7 @@ class QRPage extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: InkWell(
-          onTap: () => Navigator.pop(context),
+          onTap: () => {},
           child: const Icon(Icons.arrow_back_ios, size: 20),
         ),
         actions: [

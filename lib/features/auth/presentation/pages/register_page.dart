@@ -89,7 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     children: [
                       SizedBox(height: AppResponsive.h(20)),
 
-                      // ── Header ─────────────────────────────────────────
+                      // Header
                       AppAnimatedItem(
                         index: 0,
                         direction: SlideDirection.left,
@@ -117,7 +117,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       SizedBox(height: AppResponsive.h(22)),
 
-                      // ── Name ──────────────────────────────────────────
+                      // Name
                       AppAnimatedItem(
                         index: 1,
                         direction: SlideDirection.right,
@@ -133,7 +133,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
 
-                      // ── Email ─────────────────────────────────────────
+                      // Email
                       AppAnimatedItem(
                         index: 2,
                         direction: SlideDirection.left,
@@ -149,7 +149,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
 
-                      // ── DOB ───────────────────────────────────────────
+                      // DOB
                       AppAnimatedItem(
                         index: 3,
                         direction: SlideDirection.right,
@@ -185,7 +185,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
 
-                      // ── National ID ───────────────────────────────────
+                      // National ID
                       AppAnimatedItem(
                         index: 4,
                         direction: SlideDirection.left,
@@ -201,7 +201,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
 
-                      // ── Password ──────────────────────────────────────
+                      // Password
                       AppAnimatedItem(
                         index: 5,
                         direction: SlideDirection.right,
@@ -275,7 +275,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       SizedBox(height: AppResponsive.h(28)),
 
-                      // ── Sign Up button ────────────────────────────────
+                      //  Sign Up button
                       AppAnimatedItem(
                         index: 6,
                         direction: SlideDirection.bottom,
@@ -313,7 +313,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       SizedBox(height: AppResponsive.h(22)),
 
-                      // ── Login link ────────────────────────────────────
+                      // Login link
                       AppAnimatedItem(
                         index: 7,
                         direction: SlideDirection.bottom,
@@ -357,7 +357,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-// ── Small reusable field label ──────────────────────────────────────────────
+//  Small reusable field label
 class _FieldLabel extends StatelessWidget {
   final String label;
   const _FieldLabel({required this.label});

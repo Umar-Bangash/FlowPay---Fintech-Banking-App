@@ -107,7 +107,7 @@ class _DateOfBirthPickerState extends State<DateOfBirthPicker> {
 
                 SizedBox(height: AppResponsive.h(36)),
 
-                // ── Wheel picker — height from AppResponsive ─────────────
+                // ── Wheel picker — height from AppResponsive
                 AppAnimatedItem(
                   index: 1,
                   direction: SlideDirection.bottom,
@@ -170,7 +170,7 @@ class _DateOfBirthPickerState extends State<DateOfBirthPicker> {
 
                 SizedBox(height: AppResponsive.h(22)),
 
-                // ── Age display ──────────────────────────────────────────
+                // ── Age display
                 AppAnimatedItem(
                   index: 2,
                   direction: SlideDirection.right,

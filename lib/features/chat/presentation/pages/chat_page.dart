@@ -170,9 +170,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   // LONG PRESS — request card
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   void _showRequestOptions(MessageModel m, bool isMe) {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
@@ -337,9 +337,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   // BUILD
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   @override
   Widget build(BuildContext context) {
     AppResponsive.init(context);
@@ -519,9 +519,9 @@ class _ChatPageState extends State<ChatPage> {
     ),
   );
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   // MESSAGE ROUTER
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   Widget _msgByType(MessageModel m, bool isMe) {
     switch (m.type) {
       case 'image':
@@ -628,9 +628,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   // IMAGE BUBBLE
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   Widget _imgBubble(MessageModel m, bool isMe) => Align(
     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
     child: GestureDetector(
@@ -686,9 +686,9 @@ class _ChatPageState extends State<ChatPage> {
     ),
   );
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   // REQUEST BUBBLE
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────
   Widget _reqBubble(MessageModel m, bool isMe) => GestureDetector(
     onLongPress: () => _showRequestOptions(m, isMe),
     child: RequestMoneyCard(

@@ -19,9 +19,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  // ─────────────────────────────────────────────
   // FETCH PROFILE
-  // ─────────────────────────────────────────────
   Future<void> fetchProfileUser(String uid) async {
     try {
       emit(ProfileLoading());
@@ -36,9 +34,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // UPDATE FULL PROFILE
-  // ─────────────────────────────────────────────
   Future<void> updateProfileUser(
     ProfileUser updatedUser, {
     File? newImageMobile,
@@ -77,9 +73,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // BIOMETRIC TOGGLES
-  // ─────────────────────────────────────────────
   Future<void> toggleFaceEnabled(bool value) async {
     final uid = _uid;
     if (uid == null) return;
@@ -102,9 +96,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // NOTIFICATION TOGGLES
-  // ─────────────────────────────────────────────
   Future<void> togglePaymentNotif(bool value) async {
     final uid = _uid;
     if (uid == null) return;
@@ -138,9 +130,8 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // DEVICE INFO — save current device to Firestore
-  // ─────────────────────────────────────────────
+
   Future<void> saveCurrentDeviceInfo() async {
     final uid = _uid;
     if (uid == null) return;
@@ -164,9 +155,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // GET DEVICE INFO STRING
-  // ─────────────────────────────────────────────
   Future<String> _getDeviceInfo() async {
     final plugin = DeviceInfoPlugin();
     try {
@@ -183,9 +172,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // LOCAL IMAGE PREVIEW
-  // ─────────────────────────────────────────────
   void setPickedImage(File file) {
     if (state is ProfileLoaded) {
       final user = (state as ProfileLoaded).profileUser;
@@ -200,9 +187,7 @@ class ProfileCubit extends Cubit<ProfileStates> {
     }
   }
 
-  // ─────────────────────────────────────────────
   // HELPER — update local state without Firestore
-  // ─────────────────────────────────────────────
   void _updateLocalState(ProfileUser Function(ProfileUser) update) {
     if (state is ProfileLoaded) {
       final current = (state as ProfileLoaded).profileUser;

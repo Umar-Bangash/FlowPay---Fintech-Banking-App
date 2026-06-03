@@ -5,24 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/chat_repo.dart';
 import '../domain/message_entity.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TICK LOGIC (WhatsApp-accurate)
-//
-//  delivered=false, seenAt=null  → single grey tick
-//    • Message written to Firestore but receiver is offline / hasn't loaded yet
-//
-//  delivered=true,  seenAt=null  → double grey tick
-//    • Receiver's device stream fired (markMessagesAsDelivered ran)
-//
-//  delivered=true,  seenAt≠null  → double white tick
-//    • Receiver opened the chat (markMessagesAsSeen ran)
-//
-// WHO calls what:
-//   sendMessage()              → sets delivered=false  (sender's device)
-//   markMessagesAsDelivered()  → sets delivered=true   (receiver's device, on stream load)
-//   markMessagesAsSeen()       → sets seenAt           (receiver's device, on chat open)
-// ─────────────────────────────────────────────────────────────────────────────
-
 class ChatRepoImpl implements ChatRepo {
   final FirebaseFirestore firestore;
   final FirebaseAuth auth;
@@ -47,7 +29,7 @@ class ChatRepoImpl implements ChatRepo {
   CollectionReference _messagesCol(String otherUserId) =>
       _roomDoc(otherUserId).collection('messages');
 
-  // ── GET MESSAGES ─────────────────────────────────────────────────────────────
+  // ── GET MESSAGES ─────────────────────────────
   @override
   Stream<List<MessageModel>> getMessages(String otherUserId) {
     return _messagesCol(otherUserId)
@@ -66,7 +48,7 @@ class ChatRepoImpl implements ChatRepo {
         );
   }
 
-  // ── SEND MESSAGE ─────────────────────────────────────────────────────────────
+  // ── SEND MESSAGE ─────────────────────────────
   // Always writes delivered=false.
   // The receiver's markMessagesAsDelivered() flips it to true when they load.
   @override
@@ -76,13 +58,13 @@ class ChatRepoImpl implements ChatRepo {
     await _messagesCol(message.receiverId).add(json);
   }
 
-  // ── DELETE MESSAGE ────────────────────────────────────────────────────────────
+  // ── DELETE MESSAGE ─────────────────────────────-
   @override
   Future<void> deleteMessage(String receiverId, String messageId) async {
     await _messagesCol(receiverId).doc(messageId).delete();
   }
 
-  // ── UPDATE FIELDS ─────────────────────────────────────────────────────────────
+  // ── UPDATE FIELDS ─────────────────────────────
   @override
   Future<void> updateMessageFields(
     String receiverId,
@@ -92,7 +74,7 @@ class ChatRepoImpl implements ChatRepo {
     await _messagesCol(receiverId).doc(messageId).update(data);
   }
 
-  // ── MARK AS DELIVERED ─────────────────────────────────────────────────────────
+  // ── MARK AS DELIVERED ─────────────────────────────
   // Called on the RECEIVER'S device when their getMessages() stream fires.
   // Finds all messages sent TO _uid with delivered=false and batch-flips them.
   // This is the moment the SENDER's single tick becomes a double grey tick.
@@ -117,7 +99,7 @@ class ChatRepoImpl implements ChatRepo {
     }
   }
 
-  // ── MARK AS SEEN ──────────────────────────────────────────────────────────────
+  // ── MARK AS SEEN ─────────────────────────────
   // Called on the RECEIVER'S device when they open the chat.
   // Sets seenAt — triggers double grey → double white on sender's side.
   // Also ensures delivered=true (covers the edge case where delivery and open happen together).
@@ -149,7 +131,7 @@ class ChatRepoImpl implements ChatRepo {
     } catch (_) {}
   }
 
-  // ── GET CHAT ROOMS ────────────────────────────────────────────────────────────
+  // ── GET CHAT ROOMS ─────────────────────────────
   @override
   Stream<List<ChatRoomSummary>> getChatRooms() {
     return firestore
@@ -184,7 +166,7 @@ class ChatRepoImpl implements ChatRepo {
         });
   }
 
-  // ── UPDATE ROOM SUMMARY ───────────────────────────────────────────────────────
+  // ── UPDATE ROOM SUMMARY ─────────────────────────────
   Future<void> updateRoomSummary({
     required String otherUserId,
     required String lastMessage,
@@ -210,7 +192,7 @@ class ChatRepoImpl implements ChatRepo {
     );
   }
 
-  // ── IMAGE UPLOAD ──────────────────────────────────────────────────────────────
+  // ── IMAGE UPLOAD ─────────────────────────────
   @override
   Future<String> uploadChatImage(File file) async {
     final fileName = 'chat_${DateTime.now().millisecondsSinceEpoch}.jpg';

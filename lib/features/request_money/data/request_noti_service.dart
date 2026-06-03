@@ -7,26 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-/// Handles all notification logic for the Request Money feature.
-///
-/// Same device rule as TransactionService:
-///   LocalNotificationService  → fires on the device RUNNING this code
-///   FCM _sendPushMessage       → fires on the TARGET device via their token
-///
-/// Who runs this code → what they get locally:
-///   notifyRequestSent    → requester runs it  → requester gets local popup
-///   notifyRequestAccepted → receiver runs it  → receiver gets local popup
-///   notifyRequestDeclined → receiver runs it  → receiver gets local popup
-///   notifyRequestPaid     → payer runs it     → payer gets local popup
 class RequestMoneyNotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationRepo notificationRepo;
 
   RequestMoneyNotificationService(this.notificationRepo);
 
-  // ─────────────────────────────────────────────
   // HELPERS
-  // ─────────────────────────────────────────────
   Future<bool> _isNotificationEnabled(String uid, String type) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();

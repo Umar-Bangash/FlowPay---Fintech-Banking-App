@@ -139,8 +139,8 @@ class QrRepoImpl implements QrRepo {
       // ── FCM push to A's device ──
       // When A's device receives this:
       // → if foreground: FirebaseMessagingService._handleMessage()
-      //   calls LocalNotificationService on A's device ✅
-      // → if background/terminated: iOS/Android shows it natively ✅
+      //   calls LocalNotificationService on A's device
+      // → if background/terminated: iOS/Android shows it natively
       await FcmSender.sendToUser(
         uid: ownerId, // ← sends to A
         title: 'Account Access Request',
@@ -236,8 +236,8 @@ class QrRepoImpl implements QrRepo {
       // ── FCM push to B's device ──
       // When B's device receives this:
       // → if foreground: FirebaseMessagingService._handleMessage()
-      //   calls LocalNotificationService on B's device ✅
-      // → if background/terminated: iOS/Android shows it natively ✅
+      //   calls LocalNotificationService on B's device
+      // → if background/terminated: iOS/Android shows it natively
       await FcmSender.sendToUser(
         uid: requesterId, // ← sends to B
         title: isAccepted ? 'Access Granted' : 'Access Denied',

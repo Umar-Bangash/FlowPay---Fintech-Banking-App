@@ -27,8 +27,6 @@ class _AddMoneyToPocketState extends State<AddMoneyToPocket> {
   Account? _account;
   bool _loading = true;
 
-  // PROBLEM 1 FIX: Keep live copies of saved/target fetched fresh from
-  // Firestore. widget.goal is stale — it was passed before the last deposit.
   late double _liveSavedAmount;
   late double _liveTargetAmount;
 
@@ -77,7 +75,6 @@ class _AddMoneyToPocketState extends State<AddMoneyToPocket> {
       );
     }
 
-    // PROBLEM 1 FIX: Overwrite with the actual current Firestore values
     if (goalSnap.exists) {
       final gd = goalSnap.data() as Map<String, dynamic>;
       _liveSavedAmount = (gd['savedAmount'] as num).toDouble();
@@ -95,7 +92,6 @@ class _AddMoneyToPocketState extends State<AddMoneyToPocket> {
     final amt = double.tryParse(_amountCtrl.text) ?? 0;
     if (amt <= 0 || _account == null) return;
 
-    // PROBLEM 1 FIX: Use the live Firestore values for the cap check
     final remaining = (_liveTargetAmount - _liveSavedAmount).clamp(
       0.0,
       double.infinity,
@@ -209,9 +205,6 @@ class _AddMoneyToPocketState extends State<AddMoneyToPocket> {
 
                           SizedBox(height: AppResponsive.h(8)),
 
-                          // PROBLEM 2 FIX: Rs is a plain Text in a Row —
-                          // lives completely outside InputDecoration so it
-                          // is ALWAYS rendered regardless of focus state.
                           AppAnimatedItem(
                             index: 2,
                             direction: SlideDirection.right,
@@ -347,10 +340,6 @@ class _AddMoneyToPocketState extends State<AddMoneyToPocket> {
   }
 }
 
-/// PROBLEM 2 FIX: "Rs" is a plain [Text] widget inside a [Row],
-/// completely outside [InputDecoration]. This guarantees it is always
-/// visible — no dependency on focus, no Flutter quirks with prefixText
-/// or prefix: widgets.
 class _RsInputRow extends StatelessWidget {
   final TextEditingController controller;
   final double fontSize;

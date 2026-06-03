@@ -10,7 +10,6 @@ class QRPaymentSuccessPage extends StatefulWidget {
 
 class _QRPaymentSuccessPageState extends State<QRPaymentSuccessPage>
     with TickerProviderStateMixin {
-  // Same Easypaisa-style 3-stage animation as PaymentSuccessPage
   late AnimationController _pulseCtrl, _iconCtrl, _tickCtrl, _contentCtrl;
   late Animation<double> _pulseScale,
       _pulseOpacity,

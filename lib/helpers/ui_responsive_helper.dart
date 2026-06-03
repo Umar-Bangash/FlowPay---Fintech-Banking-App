@@ -30,8 +30,6 @@ extension ResponsivePx on BuildContext {
   SizedBox spaceWPx(double value) => SizedBox(width: wPx(value));
 }
 
-//import 'package:flutter/material.dart';      [ ***** UN COMMENT THIS ***** ]
-
 /// ─────────────────────────────────────────────
 ///  AppResponsive  –  Bulletproof Responsive Utility
 ///  Usage: wrap your build() with AppResponsive.init(context)
@@ -238,47 +236,3 @@ class AppResponsive {
     );
   }
 }
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  USAGE GUIDE
-// ─────────────────────────────────────────────────────────────────────────────
-//
-//  Step 1 – Initialise at the TOP of every build() that uses it:
-//
-//    @override
-//    Widget build(BuildContext context) {
-//      AppResponsive.init(context);   // ← always first
-//      ...
-//    }
-//
-//  Step 2 – Replace hardcoded values:
-//
-//    BEFORE:  SizedBox(height: 16)
-//    AFTER:   SizedBox(height: AppResponsive.md)
-//
-//    BEFORE:  Text('Hello', style: TextStyle(fontSize: 16))
-//    AFTER:   Text('Hello', style: TextStyle(fontSize: AppResponsive.fs(16)))
-//
-//    BEFORE:  Padding(padding: EdgeInsets.all(20))
-//    AFTER:   Padding(padding: AppResponsive.pagePadding)
-//
-//    BEFORE:  Container(width: 180, height: 52)
-//    AFTER:   Container(width: AppResponsive.w(180), height: AppResponsive.buttonHeight)
-//
-//    BEFORE:  BorderRadius.circular(12)
-//    AFTER:   BorderRadius.circular(AppResponsive.radiusMd)
-//
-//  Step 3 – Device-adaptive layouts:
-//
-//    Padding(
-//      padding: EdgeInsets.symmetric(
-//        horizontal: AppResponsive.adaptive(mobile: 16, tablet: 32, desktop: 64),
-//      ),
-//    )
-//
-//  Step 4 – Guard overflow-prone screens:
-//
-//    body: AppResponsive.safeScroll(child: myColumnWidget),
-//
-// ─────────────────────────────────────────────────────────────────────────────

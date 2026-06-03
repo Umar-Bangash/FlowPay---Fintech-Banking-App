@@ -215,7 +215,7 @@ class _ForgotPwdReqPageState extends State<ForgotPwdReqPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ── Lock illustration ──────────────────────────────
+                      //  Lock illustration
                       AppAnimatedItem(
                         index: 0,
                         direction: SlideDirection.bottom,
@@ -230,7 +230,7 @@ class _ForgotPwdReqPageState extends State<ForgotPwdReqPage> {
 
                       SizedBox(height: AppResponsive.h(36)),
 
-                      // ── Title ──────────────────────────────────────────
+                      // ── Title
                       AppAnimatedItem(
                         index: 1,
                         direction: SlideDirection.left,
@@ -246,7 +246,7 @@ class _ForgotPwdReqPageState extends State<ForgotPwdReqPage> {
 
                       SizedBox(height: AppResponsive.h(10)),
 
-                      // ── Subtitle ───────────────────────────────────────
+                      //  Subtitle
                       AppAnimatedItem(
                         index: 2,
                         direction: SlideDirection.right,
@@ -263,7 +263,7 @@ class _ForgotPwdReqPageState extends State<ForgotPwdReqPage> {
 
                       SizedBox(height: AppResponsive.h(28)),
 
-                      // ── Email field ────────────────────────────────────
+                      //  Email field
                       AppAnimatedItem(
                         index: 3,
                         direction: SlideDirection.left,
@@ -291,7 +291,7 @@ class _ForgotPwdReqPageState extends State<ForgotPwdReqPage> {
 
                       SizedBox(height: AppResponsive.h(28)),
 
-                      // ── Send button ────────────────────────────────────
+                      //  Send button
                       AppAnimatedItem(
                         index: 4,
                         direction: SlideDirection.bottom,
@@ -349,7 +349,7 @@ class _ForgotPwdReqPageState extends State<ForgotPwdReqPage> {
 
                       SizedBox(height: AppResponsive.h(28)),
 
-                      // ── Login link ─────────────────────────────────────
+                      //  Login link
                       AppAnimatedItem(
                         index: 5,
                         direction: SlideDirection.bottom,

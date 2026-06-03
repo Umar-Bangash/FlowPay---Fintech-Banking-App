@@ -8,7 +8,6 @@ import '../../../../helpers/ui_responsive_helper.dart';
 import '../components/pocket_setting_card.dart';
 import '../cubit/goal_cubit.dart';
 
-// FIX 4: Map icon id → display name for the pocket name field auto-fill
 const Map<String, String> _iconCategoryNames = {
   'education': 'Education',
   'wedding': 'Wedding',
@@ -24,9 +23,6 @@ const Map<String, String> _iconCategoryNames = {
   'random': 'Custom Pocket',
 };
 
-// FIX 4: Converted to StatefulWidget so controllers and selectedIndex
-// are stable across rebuilds — previously as StatelessWidget, every
-// GoalCubit emit caused _nameCtrl, _targetCtrl and initIdx to reset.
 class PocketEditPage extends StatefulWidget {
   final Goal goal;
   const PocketEditPage({super.key, required this.goal});
@@ -38,7 +34,7 @@ class PocketEditPage extends StatefulWidget {
 class _PocketEditPageState extends State<PocketEditPage> {
   late TextEditingController _nameCtrl;
   late TextEditingController _targetCtrl;
-  // FIX 4: selectedIndex lives in local state — not driven by GoalCubit
+  // electedIndex lives in local state — not driven by GoalCubit
   late int _selectedIdx;
 
   @override
@@ -140,7 +136,7 @@ class _PocketEditPageState extends State<PocketEditPage> {
               AppAnimatedItem(
                 index: 2,
                 direction: SlideDirection.left,
-                // FIX 5 (style match): same style as create page fields
+                // (style match): same style as create page fields
                 child: _StyledTextField(
                   controller: _nameCtrl,
                   hintText: 'Enter Pocket Name',
@@ -164,7 +160,7 @@ class _PocketEditPageState extends State<PocketEditPage> {
                   controller: _targetCtrl,
                   hintText: 'Rs. 0',
                   keyboardType: TextInputType.number,
-                  // FIX 3: Rs prefix always visible
+                  // Rs prefix always visible
                   prefix: Text(
                     'Rs  ',
                     style: TextStyle(
@@ -211,7 +207,7 @@ class _PocketEditPageState extends State<PocketEditPage> {
                         onClick: () {
                           setState(() {
                             _selectedIdx = i;
-                            // FIX 4: Auto-fill pocket name when icon has
+                            //  Auto-fill pocket name when icon has
                             // a known category name (only if field is
                             // currently empty or matches a known category)
                             final categoryName = _iconCategoryNames[p.id];
@@ -248,7 +244,7 @@ class _PocketEditPageState extends State<PocketEditPage> {
                           targetAmount:
                               double.tryParse(_targetCtrl.text) ??
                               widget.goal.targetAmount,
-                          // FIX 4: categoryId now correctly uses local
+                          // categoryId now correctly uses local
                           // _selectedIdx — not the GoalCubit's stale index
                           categoryId: pocketIconsList[_selectedIdx].id,
                         ),
@@ -292,7 +288,7 @@ class _PocketEditPageState extends State<PocketEditPage> {
   }
 }
 
-// FIX 5: Unified styled text field matching create page aesthetic
+//  Unified styled text field matching create page aesthetic
 class _StyledTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;

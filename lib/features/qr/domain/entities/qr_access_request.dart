@@ -9,7 +9,7 @@ class QrAccessRequest {
   final String requesterName;
   final String status;
   final DateTime createdAt;
-  final String? tempPassword; // ← temp, deleted after B logs in
+  final String? tempPassword;
   final String? tempEmail;
 
   const QrAccessRequest({

@@ -114,7 +114,7 @@ class _ContactSearchPageState extends State<ContactSearchPage> {
         child: SafeArea(
           child: Column(
             children: [
-              /// 🔹 TOP SECTION (NO Expanded here)
+              /// TOP SECTION (NO Expanded here)
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppResponsive.w(25)),
                 child: AppAnimatedItem(
@@ -135,7 +135,7 @@ class _ContactSearchPageState extends State<ContactSearchPage> {
 
                       SizedBox(height: AppResponsive.h(12)),
 
-                      /// 🔍 SEARCH FIELD
+                      ///  SEARCH FIELD
                       Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(
@@ -177,7 +177,7 @@ class _ContactSearchPageState extends State<ContactSearchPage> {
                 ),
               ),
 
-              /// 🔹 LIST SECTION (ONLY Expanded here ✅)
+              // LIST SECTION (ONLY Expanded here)
               Expanded(
                 child:
                     _stream == null

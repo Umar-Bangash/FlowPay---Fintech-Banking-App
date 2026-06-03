@@ -1,5 +1,3 @@
-// features/auth/data/face_auth_repo_impl.dart
-
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,9 +11,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
   static const String _embedUrl = 'https://hamadalikhan-faceapi.hf.space/embed';
   static const double _threshold = 0.85;
 
-  // ─────────────────────────────────────────────
-  // GET EMBEDDING — tries 'image' then 'file'
-  // ─────────────────────────────────────────────
+  // Get Embedding — tries 'image' then 'file'
   Future<List<double>?> _getEmbedding(List<int> imageBytes) async {
     List<double>? result = await _callEmbedApi(imageBytes, fieldName: 'image');
     result ??= await _callEmbedApi(imageBytes, fieldName: 'file');
@@ -72,9 +68,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // COSINE SIMILARITY
-  // ─────────────────────────────────────────────
+  // cosin similarity
   double _cosineSimilarity(List<double> a, List<double> b) {
     if (a.length != b.length) {
       throw Exception(
@@ -97,9 +91,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     return dotProduct / (sqrt(normA) * sqrt(normB));
   }
 
-  // ─────────────────────────────────────────────
-  // REGISTER — get embedding → store in Firestore
-  // ─────────────────────────────────────────────
+  // Register: get embedding -- store in Firestore
   @override
   Future<void> registerFaceEmbedding({
     required String uid,
@@ -117,7 +109,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
 
       debugPrint('Embedding generated: ${embedding.length} dimensions');
 
-      // ✅ set with merge instead of update
+      // set with merge instead of update
       // handles fresh accounts where doc might not have all fields
       await _firestore.collection('users').doc(uid).set({
         'faceEmbedding': embedding,
@@ -132,9 +124,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // VERIFY — get embedding → compare with stored
-  // ─────────────────────────────────────────────
+  // Verify — get embedding → compare with stored
   @override
   Future<bool> verifyFace({
     required String uid,
@@ -177,9 +167,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // CHECK — does user have face registered?
-  // ─────────────────────────────────────────────
+  // Check — does user have face registered?
   @override
   Future<bool> hasFaceRegistered(String uid) async {
     try {
@@ -194,9 +182,7 @@ class FaceAuthRepoImpl implements FaceAuthRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // DELETE — reset face registration
-  // ─────────────────────────────────────────────
+  // Delete — reset face registration
   @override
   Future<void> deleteFaceEmbedding(String uid) async {
     await _firestore.collection('users').doc(uid).update({

@@ -1,5 +1,3 @@
-// features/profile_and_setting/data/profile_repo_impl.dart
-
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flowpay/features/profile_and_setting/domain/entities/profile_user.dart';
@@ -11,9 +9,7 @@ class ProfileRepoImpl implements ProfileRepo {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // ─────────────────────────────────────────────
   // FETCH PROFILE USER
-  // ─────────────────────────────────────────────
   @override
   Future<ProfileUser?> fetchProfileUser(String uid) async {
     try {
@@ -27,9 +23,7 @@ class ProfileRepoImpl implements ProfileRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
   // UPDATE FULL PROFILE
-  // ─────────────────────────────────────────────
   @override
   Future<void> updateProfileUser(
     ProfileUser updatedProfile, {
@@ -60,9 +54,7 @@ class ProfileRepoImpl implements ProfileRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
   // UPLOAD PROFILE IMAGE
-  // ─────────────────────────────────────────────
   Future<String?> uploadProfileImage(File file, String uid) async {
     try {
       final path = '$uid/profile.png';
@@ -76,9 +68,7 @@ class ProfileRepoImpl implements ProfileRepo {
     }
   }
 
-  // ─────────────────────────────────────────────
   // BIOMETRIC TOGGLES
-  // ─────────────────────────────────────────────
   @override
   Future<void> updateFaceEnabled(String uid, bool value) async {
     await _firestore.collection('users').doc(uid).update({
@@ -93,9 +83,8 @@ class ProfileRepoImpl implements ProfileRepo {
     });
   }
 
-  // ─────────────────────────────────────────────
   // NOTIFICATION TOGGLES
-  // ─────────────────────────────────────────────
+
   @override
   Future<void> updatePaymentNotif(String uid, bool value) async {
     await _firestore.collection('users').doc(uid).update({
@@ -117,9 +106,7 @@ class ProfileRepoImpl implements ProfileRepo {
     });
   }
 
-  // ─────────────────────────────────────────────
   // DEVICE MANAGEMENT
-  // ─────────────────────────────────────────────
   @override
   Future<void> saveDeviceInfo(String uid, String deviceInfo) async {
     await _firestore.collection('users').doc(uid).update({

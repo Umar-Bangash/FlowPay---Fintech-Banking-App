@@ -29,15 +29,15 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
   late Animation<double> _pulseScale;
   late Animation<double> _pulseOpacity;
 
-  // ── Success icon scale pop ──────────────────────────────────────────────────
+  // ── Success icon scale pop ─────────────
   late AnimationController _iconCtrl;
   late Animation<double> _iconScale;
 
-  // ── Tick draw (stroke fills in) ─────────────────────────────────────────────
+  // ── Tick draw (stroke fills in) ─────────────
   late AnimationController _tickCtrl;
   late Animation<double> _tickProgress;
 
-  // ── Content slide up ────────────────────────────────────────────────────────
+  // ── Content slide up ─────────────
   late AnimationController _contentCtrl;
   late Animation<Offset> _contentSlide;
   late Animation<double> _contentFade;

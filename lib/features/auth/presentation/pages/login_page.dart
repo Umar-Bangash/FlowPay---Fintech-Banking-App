@@ -595,7 +595,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       // QR status banner
                       _buildStatusWidget(),
 
-                      // ── Header ───────────────────────────────────────
+                      //  Header
                       AppAnimatedItem(
                         index: 0,
                         direction: SlideDirection.left,
@@ -623,7 +623,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
                       SizedBox(height: AppResponsive.h(28)),
 
-                      // ── Email ─────────────────────────────────────────
+                      //  Email
                       AppAnimatedItem(
                         index: 1,
                         direction: SlideDirection.right,
@@ -646,7 +646,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         ),
                       ),
 
-                      // ── Password ──────────────────────────────────────
+                      //  Password
                       AppAnimatedItem(
                         index: 2,
                         direction: SlideDirection.left,
@@ -669,7 +669,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         ),
                       ),
 
-                      // ── Forgot password ───────────────────────────────
+                      //  Forgot password
                       AppAnimatedItem(
                         index: 3,
                         direction: SlideDirection.right,
@@ -699,7 +699,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
                       SizedBox(height: AppResponsive.h(18)),
 
-                      // ── Login button ──────────────────────────────────
+                      //  Login button
                       AppAnimatedItem(
                         index: 4,
                         direction: SlideDirection.bottom,
@@ -725,7 +725,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
                       SizedBox(height: AppResponsive.h(20)),
 
-                      // ── Divider ───────────────────────────────────────
+                      //  Divider
                       AppAnimatedItem(
                         index: 5,
                         direction: SlideDirection.bottom,
@@ -755,7 +755,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
                       SizedBox(height: AppResponsive.h(20)),
 
-                      // ── Biometric buttons ─────────────────────────────
+                      //  Biometric buttons
                       AppAnimatedItem(
                         index: 6,
                         direction: SlideDirection.bottom,

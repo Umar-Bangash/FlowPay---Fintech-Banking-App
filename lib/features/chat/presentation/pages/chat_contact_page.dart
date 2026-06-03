@@ -226,7 +226,7 @@ class ChatContactPage extends StatelessWidget {
   }
 }
 
-// ── Tile widget ──────────────────────────────────────────────────────────────
+// ── Tile widget ─────────────────────────────
 class _Tile extends StatelessWidget {
   final String name;
   final String photoUrl;

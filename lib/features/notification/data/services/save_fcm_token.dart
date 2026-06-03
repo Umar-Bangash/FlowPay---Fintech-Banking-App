@@ -30,25 +30,3 @@ class NotificationService {
     }
   }
 }
-  // static Future<void> saveUserFcmToken(String uid) async {
-  //   try {
-  //     final token = await FirebaseMessaging.instance.getToken();
-  //     if (token != null && token.isNotEmpty) {
-  //       await FirebaseFirestore.instance.collection('users').doc(uid).set({
-  //         'fcmToken': token,
-  //       }, SetOptions(merge: true));
-  //     }
-
-  //     // keep token updated when it refreshes
-  //     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-  //       if (newToken.isNotEmpty) {
-  //         await FirebaseFirestore.instance.collection('users').doc(uid).set({
-  //           'fcmToken': newToken,
-  //         }, SetOptions(merge: true));
-  //       }
-  //     });
-  //   } catch (e) {
-  //     debugPrint('Failed to save FCM token: $e');
-  //   }
-  // }
-

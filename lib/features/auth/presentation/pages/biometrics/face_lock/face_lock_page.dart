@@ -280,7 +280,7 @@ class _FaceLockPageState extends State<FaceLockPage>
           body: Stack(
             fit: StackFit.expand,
             children: [
-              // ── Camera preview ─────────────────────────────────────────
+              // ── Camera preview
               if (_camReady && _cam != null)
                 SizedBox.expand(
                   child: FittedBox(
@@ -295,7 +295,7 @@ class _FaceLockPageState extends State<FaceLockPage>
               else
                 Container(color: Colors.black),
 
-              // ── Side vignette ──────────────────────────────────────────
+              // ── Side vignette
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -312,7 +312,7 @@ class _FaceLockPageState extends State<FaceLockPage>
                 ),
               ),
 
-              // ── Top + bottom fade ──────────────────────────────────────
+              // ── Top + bottom fade
               Column(
                 children: [
                   Container(
@@ -339,7 +339,7 @@ class _FaceLockPageState extends State<FaceLockPage>
                 ],
               ),
 
-              // ── UI layer ───────────────────────────────────────────────
+              // ── UI layer
               SafeArea(
                 child: Column(
                   children: [
@@ -674,7 +674,7 @@ class _FaceLockPageState extends State<FaceLockPage>
   }
 }
 
-// ─── Bracket painter (unchanged) ─────────────────────────────────────────────
+// ─── Bracket painter (unchanged)
 class _BracketPainter extends CustomPainter {
   final Color color;
   final double thickness;

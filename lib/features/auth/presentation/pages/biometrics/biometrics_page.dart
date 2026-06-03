@@ -37,12 +37,13 @@ class _BiometricsPageState extends State<BiometricsPage> {
       }
       final doc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _fingerprintEnabled = doc.data()?['fingerprintEnabled'] ?? false;
           _faceEnabled = doc.data()?['faceEnabled'] ?? false;
           _isLoading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }

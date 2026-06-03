@@ -267,9 +267,9 @@ class _CreatePocketPageState extends State<CreatePocketPage> {
                               width: AppResponsive.w(44),
                               height: AppResponsive.h(24),
                               thumbSize: 15.99,
-                              // FIX 5: Pass real state value
+                              // Pass real state value
                               value: _notifyOnComplete,
-                              // FIX 5: Toggle and rebuild
+                              // Toggle and rebuild
                               onTap: () {
                                 setState(() {
                                   _notifyOnComplete = !_notifyOnComplete;

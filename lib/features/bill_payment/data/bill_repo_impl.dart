@@ -47,10 +47,10 @@ class BillRepositoryImpl implements BillRepository {
   Future<List<String>> getProvidersByCategory(String category) async =>
       providers[category] ?? [];
 
-  /// LOOKUP CONSUMER NAME BY PHONE NUMBER
-  ///
-  /// Step 1 → Query `accounts` collection where phone == consumerId → get userId
-  /// Step 2 → Query `users` collection by userId doc → get name
+  // LOOKUP CONSUMER NAME BY PHONE NUMBER
+  //
+  // Step 1 - Query `accounts` collection where phone == consumerId - get userId
+  // Step 2 - Query `users` collection by userId doc - get name
   Future<String> _getConsumerName(String phone) async {
     // Step 1: find account by phone number
     final accountQuery =
@@ -82,7 +82,7 @@ class BillRepositoryImpl implements BillRepository {
     return (name != null && name.isNotEmpty) ? name : "NOT_FOUND";
   }
 
-  /// FETCH BILL DETAILS (SIMULATED)
+  // FETCH BILL DETAILS (SIMULATED)
   @override
   Future<Bill> fetchBillDetails({
     required String userId,
@@ -120,7 +120,7 @@ class BillRepositoryImpl implements BillRepository {
     );
   }
 
-  /// PAY BILL
+  // PAY BILL
   @override
   Future<Bill> payBill(Bill bill) async {
     final transactionId = "TXN${DateTime.now().millisecondsSinceEpoch}";
@@ -167,7 +167,7 @@ class BillRepositoryImpl implements BillRepository {
     return paidBill;
   }
 
-  /// STREAM USER BILLS (RECENT BILLS — newest first)
+  // STREAM USER BILLS (RECENT BILLS — newest first)
   @override
   Stream<List<Bill>> getUserBillsStream(String userId) {
     return firestore

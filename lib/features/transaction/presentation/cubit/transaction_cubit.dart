@@ -90,10 +90,10 @@ class TransactionCubit extends Cubit<TransactionStates> {
     }
   }
 
-  // ✅ FIXED: get user by id — now fetches account from separate collection
+  // get user by id — now fetches account from separate collection
   Future<AppUser?> getReceiverById(String uid) async {
     try {
-      // ✅ Step 1: Fetch user document
+      //  Fetch user document
       final userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
@@ -102,10 +102,10 @@ class TransactionCubit extends Cubit<TransactionStates> {
         return null;
       }
 
-      // ✅ Step 2: Build AppUser from user doc (account will be null here)
+      //  Build AppUser from user doc (account will be null here)
       final appUser = AppUser.fromJson(userDoc.data()!);
 
-      // ✅ Step 3: Fetch account from separate 'accounts' collection
+      //  Fetch account from separate 'accounts' collection
       // Account document has a 'userId' field matching the uid
       final accountSnapshot =
           await FirebaseFirestore.instance
@@ -118,7 +118,7 @@ class TransactionCubit extends Cubit<TransactionStates> {
         final accountData = accountSnapshot.docs.first.data();
         debugPrint("getReceiverById: Found account -> $accountData");
 
-        // ✅ Step 4: Attach account to appUser
+        //  Attach account to appUser
         appUser.account = Account.fromJson(accountData);
       } else {
         debugPrint("getReceiverById: No account found for uid=$uid");
